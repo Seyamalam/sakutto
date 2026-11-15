@@ -71,6 +71,35 @@ test.describe('Gmail translate banner', () => {
     }
   });
 
+  test('close restores the original body after translating', async () => {
+    await resetExtensionStorage(extension.worker, {
+      targetLanguage: 'ja',
+      gmailTranslateBanner: true,
+    });
+    const page = await extension.context.newPage();
+    try {
+      await openGmail(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        targetLanguage: 'ja',
+        gmailTranslateBanner: true,
+      });
+
+      const english = page.locator('[data-sakutto-gmail-banner="msg-1"]');
+      const body = page.locator('[data-message-id="msg-1"] .a3s');
+      await dispatchBannerAction(page, 'msg-1', 'translate');
+      await expect(english).toHaveAttribute('data-sakutto-gmail-phase', 'translated');
+      await expect(body).toContainText('§ja§');
+
+      await dispatchBannerAction(page, 'msg-1', 'close');
+      await expect(english).toHaveCount(0);
+      await expect(body).not.toContainText('§ja§');
+      await expect(body).toContainText('The release candidate is ready for review.');
+    } finally {
+      await page.close();
+    }
+  });
+
   test('close hides the banner for that message only', async () => {
     await resetExtensionStorage(extension.worker, {
       targetLanguage: 'ja',

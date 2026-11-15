@@ -15,7 +15,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    setupFiles: ['./tests/support/scrub-git-env.ts'],
     pool: 'threads',
   },
 });

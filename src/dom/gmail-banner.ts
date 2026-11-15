@@ -114,6 +114,8 @@ export function gmailBannerAfterShowOriginal(state: GmailBannerState): GmailBann
 }
 
 export function gmailBannerAfterDismiss(state: GmailBannerState): GmailBannerState {
+  // Dismissal only hides the banner. The controller restores the translated body
+  // before calling this, so the phase does not need to change.
   return { ...state, dismissed: true };
 }
 
@@ -1464,6 +1466,7 @@ export class GmailBannerController {
 
   private dismiss(record: BannerRecord): void {
     record.controller?.abort();
+    this.restoreRecord(record);
     record.state = gmailBannerAfterDismiss(record.state);
     const key = gmailMessageKey(record.body);
     if (key.length > 0) this.dismissedKeys.add(key);

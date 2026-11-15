@@ -141,29 +141,6 @@ intro
     expect(() => extractChangelogSection(updated, '9.9.9')).toThrow(/9\.9\.9/);
   });
 
-  it('replaces an Unreleased section when the release is cut', () => {
-    const existing = `# Changelog
-
-intro
-
-## [Unreleased]
-
-### Features
-
-- pending note
-
-## [0.1.0] - 2026-01-01
-
-- first
-`;
-    const section = renderChangelogSection('0.1.1', '2026-11-05', ['feat: pending note']);
-    const updated = insertChangelogSection(existing, section);
-    expect(updated).not.toContain('[Unreleased]');
-    expect(updated).not.toContain('- pending note\n\n## [0.1.0]');
-    expect(extractChangelogSection(updated, '0.1.1')).toContain('- feat: pending note');
-    expect(extractChangelogSection(updated, '0.1.0')).toContain('- first');
-  });
-
   it('starts a new changelog from the header', () => {
     const section = renderChangelogSection('0.1.0', '2026-11-05', ['chore: init']);
     expect(insertChangelogSection('', section)).toBe(`${CHANGELOG_HEADER.trim()}\n\n${section}\n`);
@@ -457,6 +434,7 @@ function withRepo(run: (root: string) => void): void {
 }
 
 function changelogSectionVersions(changelog: string): string[] {
+  // The repository keeps an Unreleased section for pending notes; it is not a version.
   return changelog
     .split(/\r?\n/)
     .map((line) => /^## \[([^\]]+)\]/.exec(line)?.[1])

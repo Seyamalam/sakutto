@@ -236,24 +236,13 @@ export function extractChangelogSection(changelog: string, version: string): str
 export function insertChangelogSection(existing: string, section: string): string {
   const body = section.trim();
   if (body.length === 0) throw new ReleaseError('changelog section is empty');
-  const source = removeUnreleased(existing).replace(/\s*$/, '');
+  const source = existing.replace(/\s*$/, '');
   if (source.length === 0) return `${CHANGELOG_HEADER.trim()}\n\n${body}\n`;
   const match = /^## /m.exec(source);
   if (!match || match.index === undefined) return `${source}\n\n${body}\n`;
   const head = source.slice(0, match.index).replace(/\s*$/, '');
   const tail = source.slice(match.index).replace(/^\s*/, '');
   return `${head}\n\n${body}\n\n${tail}\n`;
-}
-
-/** A release turns the pending notes into its own dated section. */
-function removeUnreleased(source: string): string {
-  const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => /^## \[Unreleased\]/iu.test(line));
-  if (start < 0) return source;
-  let end = lines.findIndex((line, index) => index > start && line.startsWith('## '));
-  if (end < 0) end = lines.length;
-  lines.splice(start, end - start);
-  return lines.join('\n');
 }
 
 export function assertMainAndClean(branch: string, status: string): void {

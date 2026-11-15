@@ -232,6 +232,15 @@ describe('Gmail banner state', () => {
     expect(gmailBannerAfterTranslated(dismissed)).toBe(dismissed);
     expect(gmailBannerAfterShowOriginal(dismissed)).toBe(dismissed);
   });
+
+  it('keeps the translated phase when dismissed so the controller can restore the body', () => {
+    const translated = gmailBannerAfterTranslated(
+      gmailBannerAfterTranslate(initialGmailBannerState()),
+    );
+    const dismissed = gmailBannerAfterDismiss(translated);
+    expect(dismissed).toEqual({ phase: 'translated', dismissed: true });
+    expect(gmailBannerButton(dismissed)).toBeNull();
+  });
 });
 
 describe('Gmail banner controller', () => {
@@ -308,6 +317,30 @@ describe('Gmail banner controller', () => {
     expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
     controller.refresh();
     expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    controller.dispose();
+  });
+
+  it('restores the original body when dismissed after translating', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const original = element.textContent;
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    shadowButton(host!, 'Translate to ja').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    expect(element.textContent).toContain('§Hi team, the release is ready for review');
+
+    shadowButton(host!, 'Close').click();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    expect(element.textContent).toBe(original);
     controller.dispose();
   });
 
