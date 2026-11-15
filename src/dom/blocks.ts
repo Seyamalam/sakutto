@@ -463,7 +463,7 @@ export function isDataRowCell(element: Element): boolean {
     const row: Element | null = node.parentElement;
     if (!row) return false;
     if (isRepeatedRow(row)) return true;
-    node = row.parentElement;
+    node = row;
   }
   return false;
 }
