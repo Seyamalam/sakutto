@@ -168,13 +168,15 @@ Sakutto にマネタイズポイントはありません。完全無料で、広
 
 Sakutto にご貢献いただいた皆さん、ありがとうございます。Issue や pull request はとても歓迎しています。詳しくは [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md) をご覧ください。
 
-[![Contributors](https://contrib.rocks/image?repo=jammaru/sakutto)](https://github.com/jammaru/sakutto/graphs/contributors)
+<a href="https://github.com/sabopura"><img src="https://github.com/sabopura.png?size=120" width="60" height="60" alt="sabopura" title="sabopura"></a>
 
 ## スポンサー
 
 Sakutto を支援してくださっているスポンサーの皆さん、ありがとうございます。いただいた支援は開発の継続に役立てています。
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
+
+<a href="https://github.com/hykw"><img src="https://github.com/hykw.png?size=120" width="60" height="60" alt="hykw" title="hykw"></a>
 
 <!-- メンテナー向け: スポンサーのアバターをここに追加してください。1 行に 1 人、記入例:
 <a href="https://github.com/USER"><img src="https://github.com/USER.png" width="60" alt="USER"></a>

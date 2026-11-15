@@ -172,13 +172,15 @@ Open an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull re
 
 Thank you to everyone who has contributed to Sakutto. Issues and pull requests are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
-[![Contributors](https://contrib.rocks/image?repo=jammaru/sakutto)](https://github.com/jammaru/sakutto/graphs/contributors)
+<a href="https://github.com/sabopura"><img src="https://github.com/sabopura.png?size=120" width="60" height="60" alt="sabopura" title="sabopura"></a>
 
 ## Sponsors
 
 Thank you to everyone sponsoring Sakutto. Your support keeps development going.
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
+
+<a href="https://github.com/hykw"><img src="https://github.com/hykw.png?size=120" width="60" height="60" alt="hykw" title="hykw"></a>
 
 <!-- Maintainer: add sponsor avatars below, one per line, for example:
 <a href="https://github.com/USER"><img src="https://github.com/USER.png" width="60" alt="USER"></a>
