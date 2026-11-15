@@ -6,6 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
 [![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
 
 Sakutto は、ウェブページを端末の中で翻訳する、Chrome と Firefox 向けの非公式の拡張機能です。翻訳には [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) を使い、実行にはピン留めした [wllama](https://github.com/ngxson/wllama) を使います。訳文はすべて PLaMo が生成します。モデルの準備を待つあいだも、ページには Chrome 内蔵翻訳の下書きを挟まず、原文のまま表示します。Chrome の Translator API を使うのは、PLaMo が対応していない言語の組み合わせだけです。Firefox では PLaMo だけを使います。Preferred Networks, Inc. とは無関係です。Built with PLaMo。
 
@@ -162,6 +163,22 @@ Sakutto にマネタイズポイントはありません。完全無料で、広
 - [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md)（English: [CONTRIBUTING.md](CONTRIBUTING.md)）
 - [行動規範](CODE_OF_CONDUCT.ja.md)
 - [SECURITY.md](SECURITY.md)
+
+## コントリビューター
+
+Sakutto にご貢献いただいた皆さん、ありがとうございます。Issue や pull request はとても歓迎しています。詳しくは [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md) をご覧ください。
+
+[![Contributors](https://contrib.rocks/image?repo=jammaru/sakutto)](https://github.com/jammaru/sakutto/graphs/contributors)
+
+## スポンサー
+
+Sakutto を支援してくださっているスポンサーの皆さん、ありがとうございます。いただいた支援は開発の継続に役立てています。
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
+
+<!-- メンテナー向け: スポンサーのアバターをここに追加してください。1 行に 1 人、記入例:
+<a href="https://github.com/USER"><img src="https://github.com/USER.png" width="60" alt="USER"></a>
+-->
 
 ## ライセンス
 

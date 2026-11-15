@@ -6,6 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
 [![Last commit](https://img.shields.io/github/last-commit/jammaru/sakutto)](https://github.com/jammaru/sakutto/commits/main)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
 
 Sakutto is an unofficial extension for Chrome and Firefox that translates web pages on your device. It runs [PLaMo 3 Translate](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF) through a pinned [wllama](https://github.com/ngxson/wllama) build. Every translated line is written by PLaMo: a page waiting for the model keeps its source text rather than showing a draft from another engine. On Chrome, Chrome's Translator API is used only for the language pairs PLaMo does not support. Firefox uses PLaMo only. Not affiliated with Preferred Networks, Inc. Built with PLaMo.
 
@@ -166,6 +167,22 @@ Open an [Issue](https://github.com/jammaru/sakutto/issues) first, then a pull re
 - [CONTRIBUTING.md](CONTRIBUTING.md) (日本語: [CONTRIBUTING.ja.md](CONTRIBUTING.ja.md))
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [SECURITY.md](SECURITY.md)
+
+## Contributors
+
+Thank you to everyone who has contributed to Sakutto. Issues and pull requests are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+[![Contributors](https://contrib.rocks/image?repo=jammaru/sakutto)](https://github.com/jammaru/sakutto/graphs/contributors)
+
+## Sponsors
+
+Thank you to everyone sponsoring Sakutto. Your support keeps development going.
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/jammaru)
+
+<!-- Maintainer: add sponsor avatars below, one per line, for example:
+<a href="https://github.com/USER"><img src="https://github.com/USER.png" width="60" alt="USER"></a>
+-->
 
 ## Licenses
 
