@@ -8,6 +8,7 @@ import {
   findGmailMessageBodies,
   gmailBannerAfterDismiss,
   gmailBannerAfterShowOriginal,
+  gmailBannerAfterShowTranslation,
   gmailBannerAfterTranslate,
   gmailBannerAfterTranslated,
   gmailBannerButton,
@@ -17,6 +18,8 @@ import {
   isGmailHost,
   shouldAutoInjectGmailBanner,
   shouldOfferGmailTranslation,
+  toggleGmailAutoTranslateLanguage,
+  toggleGmailNeverTranslateLanguage,
   translateGmailBody,
 } from '@/dom/gmail-banner';
 import type { PageEngine } from '@/dom/session';
@@ -26,8 +29,14 @@ const labels = {
   detected: (language: string) => `This email appears to be written in ${language}.`,
   translate: (language: string) => `Translate to ${language}`,
   showOriginal: 'Show original',
+  showTranslation: 'Show translation',
   translating: 'Translating this email…',
   close: 'Close',
+  translated: (source: string, target: string) => `Translated: ${source} → ${target}`,
+  menu: 'Translation settings',
+  translateNow: (language: string) => `Translate ${language} now`,
+  alwaysTranslate: (language: string) => `Always translate ${language}`,
+  neverTranslate: (language: string) => `Never translate ${language}`,
 };
 
 const PREFERENCES = {
@@ -52,6 +61,21 @@ function immediate(render: (text: string, target: string) => string = (text) => 
     },
   };
   return engine;
+}
+
+function countingImmediate() {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    engine: {
+      async *translate(segments) {
+        calls += segments.length;
+        for (const segment of segments) {
+          yield { id: segment.id, final: `§${segment.text}`, engine: 'plamo' };
+        }
+      },
+    } satisfies PageEngine,
+  };
 }
 
 function shadowButton(host: Element, label: string): HTMLButtonElement {
@@ -222,7 +246,11 @@ describe('Gmail banner state', () => {
     expect(gmailBannerButton(translating)).toBe('busy');
     const translated = gmailBannerAfterTranslated(translating);
     expect(gmailBannerButton(translated)).toBe('show-original');
-    expect(gmailBannerButton(gmailBannerAfterShowOriginal(translated))).toBe('translate');
+    const original = gmailBannerAfterShowOriginal(translated);
+    expect(gmailBannerButton(original)).toBe('show-translation');
+    expect(gmailBannerButton(gmailBannerAfterShowTranslation(original))).toBe('show-original');
+    expect(gmailBannerAfterShowOriginal(original)).toBe(original);
+    expect(gmailBannerAfterShowTranslation(translated)).toBe(translated);
   });
 
   it('removes the button after a dismiss and ignores later transitions', () => {
@@ -231,6 +259,7 @@ describe('Gmail banner state', () => {
     expect(gmailBannerAfterTranslate(dismissed)).toBe(dismissed);
     expect(gmailBannerAfterTranslated(dismissed)).toBe(dismissed);
     expect(gmailBannerAfterShowOriginal(dismissed)).toBe(dismissed);
+    expect(gmailBannerAfterShowTranslation(dismissed)).toBe(dismissed);
   });
 
   it('keeps the translated phase when dismissed so the controller can restore the body', () => {
@@ -273,9 +302,243 @@ describe('Gmail banner controller', () => {
     expect(shadowButton(host!, 'Show original')).toBeDefined();
 
     shadowButton(host!, 'Show original').click();
-    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'offer');
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'original');
     expect(element.textContent).toBe(original);
+    expect(shadowButton(host!, 'Show translation')).toBeDefined();
     controller.dispose();
+  });
+
+  it('reapplies a cached translation from Show translation without another request', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const original = element.textContent;
+    const counted = countingImmediate();
+    const controller = new GmailBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    shadowButton(host!, 'Translate to ja').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    const callsAfterTranslate = counted.calls();
+    expect(callsAfterTranslate).toBeGreaterThan(0);
+    expect(element.textContent).toContain('§Hi team, the release is ready for review');
+
+    shadowButton(host!, 'Show original').click();
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('original');
+    expect(element.textContent).toBe(original);
+
+    shadowButton(host!, 'Show translation').click();
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    expect(element.textContent).toContain('§Hi team, the release is ready for review');
+    expect(counted.calls()).toBe(callsAfterTranslate);
+    controller.dispose();
+  });
+
+  it('auto-translates a remembered source language without offering first', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const counted = countingImmediate();
+    const controller = new GmailBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: { ...PREFERENCES, autoLanguages: ['en'] },
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    expect(element.textContent).toContain('§Hi team, the release is ready for review');
+    expect(counted.calls()).toBeGreaterThan(0);
+
+    controller.refresh();
+    controller.refresh();
+    expect(counted.calls()).toBeGreaterThan(0);
+    const calls = counted.calls();
+    controller.refresh();
+    expect(counted.calls()).toBe(calls);
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    controller.dispose();
+  });
+
+  it('dedupes auto-translate by message id when Gmail replaces the body node', async () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    const first = document.querySelector<HTMLElement>('div.a3s');
+    if (!first) throw new Error('missing body');
+    const counted = countingImmediate();
+    const controller = new GmailBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: { ...PREFERENCES, autoLanguages: ['en'] },
+    });
+    controller.start();
+    await waitFor(
+      () => first.previousElementSibling?.getAttribute('data-sakutto-gmail-phase') === 'translated',
+    );
+    const calls = counted.calls();
+
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `;
+    controller.refresh();
+    expect(counted.calls()).toBe(calls);
+    const replacement = document.querySelector('sakutto-gmail');
+    expect(replacement).not.toBeNull();
+    expect(replacement?.getAttribute('data-sakutto-gmail-phase')).toBe('translated');
+    controller.dispose();
+  });
+
+  it('skips a message whose source language is on the never list', () => {
+    body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    let calls = 0;
+    const engine: PageEngine = {
+      async *translate(segments) {
+        calls += segments.length;
+        for (const segment of segments) {
+          yield { id: segment.id, final: segment.text, engine: 'plamo' };
+        }
+      },
+    };
+    const controller = new GmailBannerController(document, {
+      engine,
+      labels,
+      preferences: { ...PREFERENCES, neverLanguages: ['en'] },
+    });
+    controller.start();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    controller.refresh();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    expect(calls).toBe(0);
+    controller.dispose();
+  });
+
+  it('opens the gear menu with aria-expanded and closes it with Escape', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    const shadow = gmailBannerShadow(host);
+    if (!shadow) throw new Error('missing shadow');
+    const gear = shadow.querySelector<HTMLButtonElement>('.gear');
+    const menu = shadow.querySelector<HTMLElement>('[role="menu"]');
+    if (!gear || !menu) throw new Error('missing menu');
+
+    expect(gear.getAttribute('aria-expanded')).toBe('false');
+    expect(menu.hidden).toBe(true);
+    gear.click();
+    expect(gear.getAttribute('aria-expanded')).toBe('true');
+    expect(menu.hidden).toBe(false);
+
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(gear.getAttribute('aria-expanded')).toBe('false');
+    expect(menu.hidden).toBe(true);
+    controller.dispose();
+  });
+
+  it('persists always/never choices from the menu with checkmarks', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const changes: { auto: string[]; never: string[] }[] = [];
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+      onLanguagesChange: (next) => changes.push(next),
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    const shadow = gmailBannerShadow(host);
+    if (!shadow) throw new Error('missing shadow');
+    shadow.querySelector<HTMLButtonElement>('.gear')?.click();
+    const always = shadow.querySelector<HTMLButtonElement>('[role="menuitemcheckbox"]');
+    if (!always) throw new Error('missing always item');
+    expect(always.getAttribute('aria-checked')).toBe('false');
+    expect(always.textContent).toContain('Always translate en');
+    always.click();
+    expect(changes.at(-1)).toEqual({ auto: ['en'], never: [] });
+    expect(always.getAttribute('aria-checked')).toBe('true');
+
+    shadow.querySelector<HTMLButtonElement>('.gear')?.click();
+    const never = shadow.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')[1];
+    if (!never) throw new Error('missing never item');
+    never.click();
+    expect(changes.at(-1)).toEqual({ auto: [], never: ['en'] });
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    controller.dispose();
+  });
+
+  it('does not mount or translate anything when the global switch is off', () => {
+    body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const counted = countingImmediate();
+    const controller = new GmailBannerController(document, {
+      engine: counted.engine,
+      labels,
+      preferences: { ...PREFERENCES, enabled: false, autoLanguages: ['en'] },
+    });
+    controller.start();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    expect(counted.calls()).toBe(0);
+    controller.dispose();
+  });
+
+  it('removes an open banner when the global switch is turned off', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const original = element.textContent;
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    shadowButton(host!, 'Translate to ja').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    controller.setPreferences({ ...PREFERENCES, enabled: false });
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    expect(element.textContent).toBe(original);
+  });
+
+  it('keeps language toggles mutually exclusive in the pure helpers', () => {
+    const auto = toggleGmailAutoTranslateLanguage('en', { auto: [], never: ['en'] });
+    expect(auto).toEqual({ auto: ['en'], never: [] });
+    const never = toggleGmailNeverTranslateLanguage('en', auto);
+    expect(never).toEqual({ auto: [], never: ['en'] });
   });
 
   it('shows one banner per expanded message and skips same-language bodies', () => {

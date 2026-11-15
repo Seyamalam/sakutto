@@ -1435,5 +1435,64 @@
   },
   "settingsGmailBannerHelp": {
     "message": "オンにすると、別の言語で書かれた Gmail のメールを開いたとき、本文の上に小さなバナーが出ます。翻訳はクリックしたときだけ行います。mail.google.com へのアクセス許可が必要です。ポップアップかサイト一覧から許可してください。"
+  },
+  "gmailBannerTranslated": {
+    "message": "翻訳済み: $SOURCE$ → $TARGET$",
+    "placeholders": {
+      "source": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "gmailBannerShowTranslation": {
+    "message": "翻訳を表示"
+  },
+  "gmailBannerMenu": {
+    "message": "翻訳設定"
+  },
+  "gmailBannerTranslateNow": {
+    "message": "$LANG$を今すぐ翻訳",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerAlwaysTranslate": {
+    "message": "$LANG$を常に翻訳",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerNeverTranslate": {
+    "message": "$LANG$を翻訳しない",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsGmailAutoLangs": {
+    "message": "常に翻訳する言語"
+  },
+  "settingsGmailNeverLangs": {
+    "message": "翻訳しない言語"
+  },
+  "settingsGmailNoAutoLangs": {
+    "message": "常に翻訳する言語はありません。"
+  },
+  "settingsGmailNoNeverLangs": {
+    "message": "翻訳しない言語はありません。"
+  },
+  "settingsGmailClearLangs": {
+    "message": "クリア"
+  },
+  "settingsGmailRemoveLang": {
+    "message": "削除"
   }
 }

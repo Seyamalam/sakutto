@@ -2,6 +2,7 @@
   import { t, tForBrowser } from '@/shared/i18n';
   import {
     JA_EASY_TARGET,
+    displayLanguage,
     isTargetLanguage,
     SUPPORTED_LANGUAGES,
     type TargetLanguage,
@@ -15,6 +16,8 @@
     isComposePlacement,
     normalizeTranslationPopupSize,
     normalizeVideoCaptionSize,
+    removeGmailTranslateLanguage,
+    type GmailTranslateLanguages,
     type Settings,
     type SettingsPatch,
   } from '@/shared/settings';
@@ -127,6 +130,31 @@
     const select = event.currentTarget as HTMLSelectElement;
     if (!isComposePlacement(select.value)) return;
     onChange({ composePlacement: select.value });
+  }
+
+  function gmailLanguageLists(): GmailTranslateLanguages {
+    return {
+      auto: [...settings.gmailAutoTranslateLangs],
+      never: [...settings.gmailNeverTranslateLangs],
+    };
+  }
+
+  function removeGmailLanguage(language: string): void {
+    const next = removeGmailTranslateLanguage(language, gmailLanguageLists());
+    onChange({
+      gmailAutoTranslateLangs: next.auto,
+      gmailNeverTranslateLangs: next.never,
+    });
+  }
+
+  function clearGmailLanguages(kind: 'auto' | 'never'): void {
+    const next = gmailLanguageLists();
+    if (kind === 'auto') next.auto = [];
+    else next.never = [];
+    onChange({
+      gmailAutoTranslateLangs: next.auto,
+      gmailNeverTranslateLangs: next.never,
+    });
   }
 
   const placementLabels = {
@@ -257,6 +285,76 @@
     <span>{t('settingsGmailBanner')}</span>
   </label>
   <p class="muted help">{t('settingsGmailBannerHelp')}</p>
+
+  <div class="field gmail-languages" data-sakutto="gmail-auto-langs">
+    <div class="field-heading">
+      <span>{t('settingsGmailAutoLangs')}</span>
+      {#if settings.gmailAutoTranslateLangs.length > 0}
+        <button
+          type="button"
+          class="link-button"
+          data-sakutto="gmail-auto-langs-clear"
+          onclick={() => clearGmailLanguages('auto')}
+        >
+          {t('settingsGmailClearLangs')}
+        </button>
+      {/if}
+    </div>
+    {#if settings.gmailAutoTranslateLangs.length === 0}
+      <p class="muted help">{t('settingsGmailNoAutoLangs')}</p>
+    {:else}
+      <ul class="custom-host-list">
+        {#each settings.gmailAutoTranslateLangs as language (language)}
+          <li>
+            <span>{displayLanguage(language, uiLanguage)}</span>
+            <button
+              type="button"
+              data-sakutto="gmail-auto-lang-remove"
+              aria-label={`${t('settingsGmailRemoveLang')} ${displayLanguage(language, uiLanguage)}`}
+              onclick={() => removeGmailLanguage(language)}
+            >
+              {t('settingsGmailRemoveLang')}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+
+  <div class="field gmail-languages" data-sakutto="gmail-never-langs">
+    <div class="field-heading">
+      <span>{t('settingsGmailNeverLangs')}</span>
+      {#if settings.gmailNeverTranslateLangs.length > 0}
+        <button
+          type="button"
+          class="link-button"
+          data-sakutto="gmail-never-langs-clear"
+          onclick={() => clearGmailLanguages('never')}
+        >
+          {t('settingsGmailClearLangs')}
+        </button>
+      {/if}
+    </div>
+    {#if settings.gmailNeverTranslateLangs.length === 0}
+      <p class="muted help">{t('settingsGmailNoNeverLangs')}</p>
+    {:else}
+      <ul class="custom-host-list">
+        {#each settings.gmailNeverTranslateLangs as language (language)}
+          <li>
+            <span>{displayLanguage(language, uiLanguage)}</span>
+            <button
+              type="button"
+              data-sakutto="gmail-never-lang-remove"
+              aria-label={`${t('settingsGmailRemoveLang')} ${displayLanguage(language, uiLanguage)}`}
+              onclick={() => removeGmailLanguage(language)}
+            >
+              {t('settingsGmailRemoveLang')}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 
   <label class="check">
     <input
@@ -612,5 +710,16 @@
     justify-content: space-between;
     gap: var(--space-2);
     font-size: 13px;
+  }
+
+  .link-button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent, #0e7490);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: underline;
   }
 </style>

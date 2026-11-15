@@ -220,14 +220,22 @@ function captionLabels(): CaptionOverlayLabels {
 
 function gmailBannerLabels(): GmailBannerLabels {
   const uiLanguage = currentUiLanguage();
+  const sourceName = (language: string) => displayLanguage(language, uiLanguage);
   return {
     region: t('gmailBannerRegion'),
-    detected: (language) => t('gmailBannerDetected', [displayLanguage(language, uiLanguage)]),
+    detected: (language) => t('gmailBannerDetected', [sourceName(language)]),
     translate: (language) =>
       t('gmailBannerTranslate', [displayTargetLanguage(language, uiLanguage)]),
     showOriginal: t('gmailBannerShowOriginal'),
+    showTranslation: t('gmailBannerShowTranslation'),
     translating: t('gmailBannerTranslating'),
     close: t('close'),
+    translated: (source, target) =>
+      t('gmailBannerTranslated', [sourceName(source), displayTargetLanguage(target, uiLanguage)]),
+    menu: t('gmailBannerMenu'),
+    translateNow: (language) => t('gmailBannerTranslateNow', [sourceName(language)]),
+    alwaysTranslate: (language) => t('gmailBannerAlwaysTranslate', [sourceName(language)]),
+    neverTranslate: (language) => t('gmailBannerNeverTranslate', [sourceName(language)]),
   };
 }
 
@@ -261,6 +269,8 @@ function gmailBannerPreferencesFor(settings: Settings, rule: SiteRule, host: str
     enabled: settings.gmailTranslateBanner && isGmailHost(host) && rule.auto !== 'always',
     targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
     form: settings.form,
+    autoLanguages: settings.gmailAutoTranslateLangs,
+    neverLanguages: settings.gmailNeverTranslateLangs,
     ...(glossary.length > 0 ? { glossary } : {}),
   };
 }
@@ -477,6 +487,7 @@ export default defineContentScript({
       let liveRule = rule;
       let captionDisplayWrite = 0;
       let captionPositionWrite = 0;
+      let gmailLanguagesWrite = 0;
 
       const persistCaptionPosition = (point: VideoCaptionPosition): void => {
         captionPositionWrite += 1;
@@ -512,6 +523,18 @@ export default defineContentScript({
         onWarm: () => {
           if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
         },
+        onLanguagesChange: (languages) => {
+          gmailLanguagesWrite += 1;
+          liveSettings = {
+            ...liveSettings,
+            gmailAutoTranslateLangs: languages.auto,
+            gmailNeverTranslateLangs: languages.never,
+          };
+          void saveSettings({
+            gmailAutoTranslateLangs: languages.auto,
+            gmailNeverTranslateLangs: languages.never,
+          });
+        },
       });
       gmailBanner.start();
 
@@ -522,6 +545,7 @@ export default defineContentScript({
         const writeId = captionDisplayWrite;
         const positionWriteId = captionPositionWrite;
         const popupWidthId = popupWidthWrite;
+        const gmailLanguagesId = gmailLanguagesWrite;
         const [nextSettings, nextRule] = await Promise.all([loadSettings(), loadSiteRule(host)]);
         const display =
           writeId === captionDisplayWrite
@@ -535,11 +559,21 @@ export default defineContentScript({
           popupWidthId === popupWidthWrite
             ? nextSettings.translationPopupWidth
             : liveSettings.translationPopupWidth;
+        const gmailAutoTranslateLangs =
+          gmailLanguagesId === gmailLanguagesWrite
+            ? nextSettings.gmailAutoTranslateLangs
+            : liveSettings.gmailAutoTranslateLangs;
+        const gmailNeverTranslateLangs =
+          gmailLanguagesId === gmailLanguagesWrite
+            ? nextSettings.gmailNeverTranslateLangs
+            : liveSettings.gmailNeverTranslateLangs;
         liveSettings = {
           ...nextSettings,
           translationPopupWidth: popupWidth,
           videoCaptionDisplay: display,
           videoCaptionPositions: positions,
+          gmailAutoTranslateLangs,
+          gmailNeverTranslateLangs,
         };
         liveRule = nextRule;
         engineSource = liveSettings.engineSource;

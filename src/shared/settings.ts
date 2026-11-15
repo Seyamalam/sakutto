@@ -16,6 +16,8 @@ import { normalizeCaptionCustomHosts } from '@/captions/custom-hosts';
 import { normalizeGlossary } from './glossary';
 import {
   DEFAULT_TARGET_LANGUAGE,
+  canonicalChromeLanguage,
+  canonicalLanguage,
   isChromeOnlyLanguage,
   isTargetLanguage,
   resolveTargetLanguage,
@@ -119,6 +121,118 @@ export const COMPOSE_PLACEMENTS = ['above', 'below', 'corner', 'free'] as const;
 export type ComposePlacement = (typeof COMPOSE_PLACEMENTS)[number];
 export type ComposeFreePoint = { x: number; y: number };
 
+/** Source-language rules the Gmail banner remembers across messages. */
+export interface GmailTranslateLanguages {
+  auto: string[];
+  never: string[];
+}
+
+function canonicalGmailLanguage(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return canonicalLanguage(value) ?? canonicalChromeLanguage(value);
+}
+
+/**
+ * Reads a stored list of source languages. Duplicates and unsupported tags are dropped so
+ * a menu toggle only has to compare canonical codes.
+ */
+export function normalizeGmailLanguageList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const languages: string[] = [];
+  for (const entry of value) {
+    const language = canonicalGmailLanguage(entry);
+    if (language !== null && !languages.includes(language)) languages.push(language);
+  }
+  return languages;
+}
+
+/** Never wins when a broken or hand-edited record has the same language in both lists. */
+export function normalizeGmailTranslateLanguages(value: unknown): GmailTranslateLanguages {
+  if (!isRecord(value)) return { auto: [], never: [] };
+  const never = normalizeGmailLanguageList(value.gmailNeverTranslateLangs);
+  const auto = normalizeGmailLanguageList(value.gmailAutoTranslateLangs).filter(
+    (language) => !never.includes(language),
+  );
+  return { auto, never };
+}
+
+export function isGmailAutoTranslateLanguage(
+  language: string | null | undefined,
+  autoLanguages: readonly string[],
+): boolean {
+  const canonical = canonicalGmailLanguage(language);
+  return canonical !== null && autoLanguages.includes(canonical);
+}
+
+export function isGmailNeverTranslateLanguage(
+  language: string | null | undefined,
+  neverLanguages: readonly string[],
+): boolean {
+  const canonical = canonicalGmailLanguage(language);
+  return canonical !== null && neverLanguages.includes(canonical);
+}
+
+export function gmailTranslateLanguagePreference(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): 'auto' | 'never' | null {
+  if (isGmailNeverTranslateLanguage(language, languages.never)) return 'never';
+  if (isGmailAutoTranslateLanguage(language, languages.auto)) return 'auto';
+  return null;
+}
+
+/**
+ * Turns "Always translate this language" on or off. A language can be in the auto list or
+ * the never list, never both, so enabling one side removes the other.
+ */
+export function toggleGmailAutoTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  const auto = [...languages.auto];
+  const never = [...languages.never];
+  if (canonical === null) return { auto, never };
+  const index = auto.indexOf(canonical);
+  if (index >= 0) auto.splice(index, 1);
+  else auto.push(canonical);
+  return {
+    auto,
+    never: never.filter((entry) => entry !== canonical),
+  };
+}
+
+/** Turns "Never translate this language" on or off, clearing the auto rule for it. */
+export function toggleGmailNeverTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  const auto = [...languages.auto];
+  const never = [...languages.never];
+  if (canonical === null) return { auto, never };
+  const index = never.indexOf(canonical);
+  if (index >= 0) never.splice(index, 1);
+  else never.push(canonical);
+  return {
+    auto: auto.filter((entry) => entry !== canonical),
+    never,
+  };
+}
+
+/** Removes a language from whichever list it is in. */
+export function removeGmailTranslateLanguage(
+  language: string | null | undefined,
+  languages: { auto: readonly string[]; never: readonly string[] },
+): GmailTranslateLanguages {
+  const canonical = canonicalGmailLanguage(language);
+  if (canonical === null) return { auto: [...languages.auto], never: [...languages.never] };
+  return {
+    auto: languages.auto.filter((entry) => entry !== canonical),
+    never: languages.never.filter((entry) => entry !== canonical),
+  };
+}
+
 export interface LicenseConsent {
   license: 'plamo-community';
   version: typeof PLAMO_LICENSE_VERSION;
@@ -214,6 +328,10 @@ export interface Settings {
    * small translate banner. The message body is translated only after the reader clicks.
    */
   gmailTranslateBanner: boolean;
+  /** Source languages the Gmail banner translates without offering first. */
+  gmailAutoTranslateLangs: string[];
+  /** Source languages the Gmail banner leaves alone. */
+  gmailNeverTranslateLangs: string[];
 }
 
 export type SettingsPatch = Partial<
@@ -250,6 +368,8 @@ export type SettingsPatch = Partial<
     | 'videoCaptionPositions'
     | 'captionCustomHosts'
     | 'gmailTranslateBanner'
+    | 'gmailAutoTranslateLangs'
+    | 'gmailNeverTranslateLangs'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -289,6 +409,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   videoCaptionPositions: {},
   captionCustomHosts: [],
   gmailTranslateBanner: true,
+  gmailAutoTranslateLangs: [],
+  gmailNeverTranslateLangs: [],
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -316,6 +438,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
   const defaults = createDefaultSettings(uiLanguage);
   if (!isRecord(value) || value.schemaVersion !== SETTINGS_SCHEMA_VERSION) return defaults;
 
+  const gmailLanguages = normalizeGmailTranslateLanguages(value);
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     targetLanguage: isTargetLanguage(value.targetLanguage)
@@ -354,6 +477,8 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     videoCaptionPositions: normalizeVideoCaptionPositions(value.videoCaptionPositions),
     captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
     gmailTranslateBanner: value.gmailTranslateBanner !== false,
+    gmailAutoTranslateLangs: gmailLanguages.auto,
+    gmailNeverTranslateLangs: gmailLanguages.never,
   };
 }
 

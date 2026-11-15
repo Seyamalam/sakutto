@@ -1,6 +1,13 @@
 import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
 import type { GlossaryEntry } from '@/engine/types';
-import type { Formality } from '@/shared/settings';
+import {
+  isGmailAutoTranslateLanguage,
+  isGmailNeverTranslateLanguage,
+  toggleGmailAutoTranslateLanguage,
+  toggleGmailNeverTranslateLanguage,
+  type Formality,
+  type GmailTranslateLanguages,
+} from '@/shared/settings';
 import { listTranslatableBlocks } from './blocks';
 import { canonicalPageLanguage, inferLanguage, isAlreadyTargetLanguage } from './detect';
 import { translationPriority } from './priority';
@@ -8,6 +15,18 @@ import { assessTranslation, stripPlaceholderTokens } from './placeholders';
 import { applyTranslation, restoreSegment } from './render';
 import { buildSegment, placeholderIds, visibleOriginal, type SegmentModel } from './segment';
 import type { PageEngine } from './session';
+
+export {
+  gmailTranslateLanguagePreference,
+  isGmailAutoTranslateLanguage,
+  isGmailNeverTranslateLanguage,
+  normalizeGmailLanguageList,
+  normalizeGmailTranslateLanguages,
+  removeGmailTranslateLanguage,
+  toggleGmailAutoTranslateLanguage,
+  toggleGmailNeverTranslateLanguage,
+  type GmailTranslateLanguages,
+} from '@/shared/settings';
 
 /** A body this short is a greeting or a signature, not enough prose to identify. */
 export const GMAIL_MIN_BODY_CHARS = 24;
@@ -78,14 +97,14 @@ export function shouldOfferGmailTranslation(input: GmailBannerGate): boolean {
   return source !== null && target !== null && source !== target;
 }
 
-export type GmailBannerPhase = 'offer' | 'translating' | 'translated';
+export type GmailBannerPhase = 'offer' | 'translating' | 'translated' | 'original';
 
 export interface GmailBannerState {
   phase: GmailBannerPhase;
   dismissed: boolean;
 }
 
-export type GmailBannerButton = 'translate' | 'show-original' | 'busy';
+export type GmailBannerButton = 'translate' | 'show-original' | 'show-translation' | 'busy';
 
 export function initialGmailBannerState(): GmailBannerState {
   return { phase: 'offer', dismissed: false };
@@ -95,6 +114,7 @@ export function gmailBannerButton(state: GmailBannerState): GmailBannerButton | 
   if (state.dismissed) return null;
   if (state.phase === 'translating') return 'busy';
   if (state.phase === 'translated') return 'show-original';
+  if (state.phase === 'original') return 'show-translation';
   return 'translate';
 }
 
@@ -108,9 +128,15 @@ export function gmailBannerAfterTranslated(state: GmailBannerState): GmailBanner
   return { ...state, phase: 'translated' };
 }
 
+/** Hides the translation but keeps the cached blocks so Show translation can reapply them. */
 export function gmailBannerAfterShowOriginal(state: GmailBannerState): GmailBannerState {
   if (state.dismissed || state.phase !== 'translated') return state;
-  return { ...state, phase: 'offer' };
+  return { ...state, phase: 'original' };
+}
+
+export function gmailBannerAfterShowTranslation(state: GmailBannerState): GmailBannerState {
+  if (state.dismissed || state.phase !== 'original') return state;
+  return { ...state, phase: 'translated' };
 }
 
 export function gmailBannerAfterDismiss(state: GmailBannerState): GmailBannerState {
@@ -994,8 +1020,14 @@ export interface GmailBannerLabels {
   detected: (language: string) => string;
   translate: (language: string) => string;
   showOriginal: string;
+  showTranslation: string;
   translating: string;
   close: string;
+  translated: (source: string, target: string) => string;
+  menu: string;
+  translateNow: (language: string) => string;
+  alwaysTranslate: (language: string) => string;
+  neverTranslate: (language: string) => string;
 }
 
 export interface GmailBannerPreferences {
@@ -1003,6 +1035,10 @@ export interface GmailBannerPreferences {
   targetLanguage: string;
   form: Formality;
   glossary?: readonly GlossaryEntry[];
+  /** Source languages translated on arrival, without showing the offer button first. */
+  autoLanguages?: readonly string[];
+  /** Source languages that never get a banner. */
+  neverLanguages?: readonly string[];
 }
 
 export interface GmailBannerOptions {
@@ -1010,25 +1046,43 @@ export interface GmailBannerOptions {
   labels: GmailBannerLabels;
   preferences: GmailBannerPreferences;
   onWarm?: () => void;
+  onLanguagesChange?: (languages: GmailTranslateLanguages) => void;
   debounceMs?: number;
 }
 
 interface AppliedBlock {
   model: SegmentModel;
+  text: string;
   created: Text[];
+}
+
+interface CachedTranslation {
+  source: string;
+  text: string;
 }
 
 interface BannerRecord {
   body: Element;
   host: HTMLElement;
   shadow: ShadowRoot;
+  banner: HTMLElement;
   text: HTMLElement;
   action: HTMLButtonElement;
   close: HTMLButtonElement;
+  gear: HTMLButtonElement;
+  menu: HTMLElement;
+  menuTranslate: HTMLButtonElement;
+  menuAuto: HTMLButtonElement;
+  menuNever: HTMLButtonElement;
+  autoCheck: HTMLElement;
+  neverCheck: HTMLElement;
   state: GmailBannerState;
   language: string;
   models: AppliedBlock[];
   controller: AbortController | null;
+  autoAttempted: boolean;
+  menuOpen: boolean;
+  outsideHandler: ((event: Event) => void) | null;
 }
 
 const bannerShadows = new WeakMap<Element, ShadowRoot>();
@@ -1055,6 +1109,13 @@ const BANNER_STYLE = `
   color: #1f2937;
   font: 13px/1.45 "Google Sans", "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
   box-shadow: 0 1px 2px rgb(60 64 67 / 8%);
+}
+.banner.compact {
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f1f6f8;
+  font-size: 12.5px;
 }
 .icon {
   flex: 0 0 auto;
@@ -1089,7 +1150,8 @@ button {
   cursor: default;
   text-decoration: none;
 }
-.close {
+.close,
+.gear {
   flex: 0 0 auto;
   width: 26px;
   height: 26px;
@@ -1102,14 +1164,80 @@ button {
   line-height: 1;
   padding: 0;
 }
-.close:hover {
+.close:hover,
+.gear:hover,
+.gear[aria-expanded="true"] {
   background: rgb(60 64 67 / 10%);
+}
+.gear {
+  display: inline-grid;
+  place-items: center;
+}
+.gear svg {
+  width: 17px;
+  height: 17px;
+}
+.menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+.menu {
+  position: absolute;
+  z-index: 2147483647;
+  top: calc(100% + 6px);
+  right: 0;
+  box-sizing: border-box;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid #d7dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(60 64 67 / 22%);
+}
+.menu[hidden] {
+  display: none;
+}
+.menu-item {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #1f2937;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: rgb(14 116 144 / 9%);
+  outline: none;
+}
+.check {
+  color: #0e7490;
+  font-weight: 700;
+  text-align: center;
+}
+.action:focus-visible,
+.close:focus-visible,
+.gear:focus-visible,
+.menu-item:focus-visible {
+  outline: 2px solid #0e7490;
+  outline-offset: 1px;
 }
 @media (prefers-color-scheme: dark) {
   .banner {
     border-color: #2d3947;
     background: #1a222c;
     color: #edf1f6;
+  }
+  .banner.compact {
+    background: #152029;
   }
   .icon {
     color: #67e8f9;
@@ -1121,11 +1249,29 @@ button {
     background: rgb(103 232 249 / 12%);
   }
   .action:disabled,
-  .close {
+  .close,
+  .gear {
     color: #9ba7b6;
   }
-  .close:hover {
+  .close:hover,
+  .gear:hover,
+  .gear[aria-expanded="true"] {
     background: rgb(237 241 246 / 10%);
+  }
+  .menu {
+    border-color: #2d3947;
+    background: #1f2938;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+  }
+  .menu-item {
+    color: #edf1f6;
+  }
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background: rgb(103 232 249 / 12%);
+  }
+  .check {
+    color: #67e8f9;
   }
 }
 `;
@@ -1154,17 +1300,37 @@ function appendLanguageIcon(doc: Document, parent: Element): void {
   parent.append(svg);
 }
 
+function appendGearIcon(doc: Document, parent: Element): void {
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = doc.createElementNS(SVG_NS, 'path');
+  path.setAttribute(
+    'd',
+    'M19.4 13a7.7 7.7 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.7 7.7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.3-2.6a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z',
+  );
+  path.setAttribute('fill', 'currentColor');
+  svg.append(path);
+  parent.append(svg);
+}
+
 export class GmailBannerController {
   private readonly engine: PageEngine;
   private labels: GmailBannerLabels;
   private prefs: GmailBannerPreferences;
   private readonly onWarm: () => void;
+  private readonly onLanguagesChange: (languages: GmailTranslateLanguages) => void;
   private readonly debounceMs: number;
   private readonly records = new Map<Element, BannerRecord>();
   private readonly dismissedKeys = new Set<string>();
+  private readonly translatedKeys = new Set<string>();
+  private readonly autoPendingKeys = new Set<string>();
+  private readonly translationsByKey = new Map<string, CachedTranslation[]>();
   private observer: MutationObserver | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
+  private openMenuRecord: BannerRecord | null = null;
 
   private readonly observerFactory: typeof MutationObserver | null;
 
@@ -1176,6 +1342,7 @@ export class GmailBannerController {
     this.labels = options.labels;
     this.prefs = options.preferences;
     this.onWarm = options.onWarm ?? (() => undefined);
+    this.onLanguagesChange = options.onLanguagesChange ?? (() => undefined);
     this.debounceMs = options.debounceMs ?? 150;
     const view = doc.defaultView as (Window & typeof globalThis) | null;
     this.observerFactory =
@@ -1202,12 +1369,17 @@ export class GmailBannerController {
       this.timer = null;
     }
     for (const record of [...this.records.values()]) {
+      this.closeMenu(record);
       record.controller?.abort();
       this.restoreRecord(record);
       record.host.remove();
     }
     this.records.clear();
     this.dismissedKeys.clear();
+    this.translatedKeys.clear();
+    this.autoPendingKeys.clear();
+    this.translationsByKey.clear();
+    this.openMenuRecord = null;
   }
 
   dispose(): void {
@@ -1237,13 +1409,50 @@ export class GmailBannerController {
     ) {
       this.resetBanners();
       this.refresh();
+      return;
     }
+    if (
+      languageListKey(previous.autoLanguages) !== languageListKey(next.autoLanguages) ||
+      languageListKey(previous.neverLanguages) !== languageListKey(next.neverLanguages)
+    ) {
+      this.applyLanguagePreferences();
+    }
+  }
+
+  /** Reconciles banners already on screen after the auto/never lists change. */
+  private applyLanguagePreferences(): void {
+    for (const record of [...this.records.values()]) {
+      const auto = isGmailAutoTranslateLanguage(record.language, this.prefs.autoLanguages ?? []);
+      const never = isGmailNeverTranslateLanguage(record.language, this.prefs.neverLanguages ?? []);
+      if (never) {
+        record.controller?.abort();
+        this.closeMenu(record);
+        this.restoreRecord(record);
+        record.host.remove();
+        this.records.delete(record.body);
+        const key = gmailMessageKey(record.body);
+        if (key.length > 0) {
+          this.translatedKeys.delete(key);
+          this.translationsByKey.delete(key);
+        }
+        continue;
+      }
+      if (!auto) record.autoAttempted = false;
+      this.paint(record);
+      if (auto && record.state.phase === 'offer' && !record.autoAttempted) {
+        record.autoAttempted = true;
+        void this.translate(record);
+      }
+    }
+    // A message hidden by a never rule can get its banner back when the list changes.
+    this.refresh();
   }
 
   refresh(): void {
     if (!this.prefs.enabled) return;
     for (const [body, record] of [...this.records]) {
       if (body.isConnected) continue;
+      this.closeMenu(record);
       record.controller?.abort();
       record.host.remove();
       this.records.delete(body);
@@ -1277,7 +1486,29 @@ export class GmailBannerController {
       ) {
         continue;
       }
-      this.mount(body, key, language ?? 'en');
+      if (isGmailNeverTranslateLanguage(language, this.prefs.neverLanguages ?? [])) continue;
+
+      const source = language ?? 'en';
+      const autoKey = key.length > 0 ? key : '';
+      const alreadyAutoTranslated =
+        autoKey.length > 0 &&
+        (this.translatedKeys.has(autoKey) || this.autoPendingKeys.has(autoKey));
+      const auto = isGmailAutoTranslateLanguage(source, this.prefs.autoLanguages ?? []);
+      if (auto && !alreadyAutoTranslated && autoKey.length > 0) {
+        this.autoPendingKeys.add(autoKey);
+      }
+      const record = this.mount(body, key, source, {
+        auto: auto && !alreadyAutoTranslated,
+        autoAttempted: alreadyAutoTranslated,
+      });
+      if (record && auto && alreadyAutoTranslated && autoKey.length > 0) {
+        const cached = this.translationsByKey.get(autoKey);
+        if (cached && cached.length > 0 && this.applyCachedTranslation(record, cached)) {
+          record.state = { ...record.state, phase: 'translated' };
+          record.autoAttempted = true;
+          this.paint(record);
+        }
+      }
     }
   }
 
@@ -1299,6 +1530,13 @@ export class GmailBannerController {
         targetLanguage: this.prefs.targetLanguage,
       })
     ) {
+      this.closeMenu(record);
+      record.host.remove();
+      this.records.delete(record.body);
+      return;
+    }
+    if (isGmailNeverTranslateLanguage(language, this.prefs.neverLanguages ?? [])) {
+      this.closeMenu(record);
       record.host.remove();
       this.records.delete(record.body);
       return;
@@ -1307,11 +1545,23 @@ export class GmailBannerController {
       record.language = language;
       this.paint(record);
     }
+    const auto = isGmailAutoTranslateLanguage(record.language, this.prefs.autoLanguages ?? []);
+    if (auto && !record.autoAttempted && record.state.phase === 'offer') {
+      record.autoAttempted = true;
+      const key = gmailMessageKey(record.body);
+      if (key.length > 0) this.autoPendingKeys.add(key);
+      void this.translate(record);
+    }
   }
 
-  private mount(body: Element, key: string, language: string): void {
+  private mount(
+    body: Element,
+    key: string,
+    language: string,
+    options: { auto?: boolean; autoAttempted?: boolean } = {},
+  ): BannerRecord | null {
     const parent = body.parentElement;
-    if (!parent) return;
+    if (!parent) return null;
 
     const host = this.doc.createElement(GMAIL_BANNER_TAG);
     host.setAttribute('translate', 'no');
@@ -1336,12 +1586,62 @@ export class GmailBannerController {
     const action = this.doc.createElement('button');
     action.type = 'button';
     action.className = 'action';
+
+    const menuWrap = this.doc.createElement('span');
+    menuWrap.className = 'menu-wrap';
+    const gear = this.doc.createElement('button');
+    gear.type = 'button';
+    gear.className = 'gear';
+    gear.setAttribute('aria-haspopup', 'menu');
+    gear.setAttribute('aria-expanded', 'false');
+    appendGearIcon(this.doc, gear);
+
+    const menu = this.doc.createElement('div');
+    menu.className = 'menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+
+    const menuTranslate = this.doc.createElement('button');
+    menuTranslate.type = 'button';
+    menuTranslate.className = 'menu-item';
+    menuTranslate.setAttribute('role', 'menuitem');
+    const translateCheck = this.doc.createElement('span');
+    translateCheck.className = 'check';
+    translateCheck.setAttribute('aria-hidden', 'true');
+    const translateLabel = this.doc.createElement('span');
+    menuTranslate.append(translateCheck, translateLabel);
+
+    const menuAuto = this.doc.createElement('button');
+    menuAuto.type = 'button';
+    menuAuto.className = 'menu-item';
+    menuAuto.setAttribute('role', 'menuitemcheckbox');
+    menuAuto.setAttribute('aria-checked', 'false');
+    const autoCheck = this.doc.createElement('span');
+    autoCheck.className = 'check';
+    autoCheck.setAttribute('aria-hidden', 'true');
+    const autoLabel = this.doc.createElement('span');
+    menuAuto.append(autoCheck, autoLabel);
+
+    const menuNever = this.doc.createElement('button');
+    menuNever.type = 'button';
+    menuNever.className = 'menu-item';
+    menuNever.setAttribute('role', 'menuitemcheckbox');
+    menuNever.setAttribute('aria-checked', 'false');
+    const neverCheck = this.doc.createElement('span');
+    neverCheck.className = 'check';
+    neverCheck.setAttribute('aria-hidden', 'true');
+    const neverLabel = this.doc.createElement('span');
+    menuNever.append(neverCheck, neverLabel);
+
+    menu.append(menuTranslate, menuAuto, menuNever);
+    menuWrap.append(gear, menu);
+
     const close = this.doc.createElement('button');
     close.type = 'button';
     close.className = 'close';
     close.textContent = '×';
 
-    banner.append(icon, text, action, close);
+    banner.append(icon, text, action, menuWrap, close);
     shadow.append(style, banner);
     parent.insertBefore(host, body);
 
@@ -1349,16 +1649,28 @@ export class GmailBannerController {
       body,
       host,
       shadow,
+      banner,
       text,
       action,
       close,
+      gear,
+      menu,
+      menuTranslate,
+      menuAuto,
+      menuNever,
+      autoCheck,
+      neverCheck,
       state: initialGmailBannerState(),
       language,
       models: [],
       controller: null,
+      autoAttempted: options.autoAttempted === true,
+      menuOpen: false,
+      outsideHandler: null,
     };
     this.records.set(body, record);
     this.paint(record);
+
     action.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1369,6 +1681,44 @@ export class GmailBannerController {
       event.stopPropagation();
       this.dismiss(record);
     });
+    gear.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (record.menuOpen) this.closeMenu(record, true);
+      else this.openMenu(record);
+    });
+    gear.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && record.menuOpen) {
+        event.preventDefault();
+        this.closeMenu(record, true);
+        return;
+      }
+      if (event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      this.openMenu(record);
+    });
+    menuTranslate.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMenu(record, true);
+      const kind = gmailBannerButton(record.state);
+      if (kind === 'translate') void this.translate(record);
+      else if (kind === 'show-translation') this.showTranslation(record);
+    });
+    menuAuto.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setAutoLanguage(record);
+      this.closeMenu(record, true);
+    });
+    menuNever.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setNeverLanguage(record);
+      this.closeMenu(record, true);
+    });
+    menu.addEventListener('keydown', (event) => this.handleMenuKeydown(record, event));
+
     // The shadow root is closed, so the fixture build exposes the same actions as an
     // event the page can dispatch. The release build has no test hook.
     if (__SAKUTTO_FAKE_ENGINE__) {
@@ -1378,14 +1728,89 @@ export class GmailBannerController {
         if (detail === 'show-original' && gmailBannerButton(record.state) === 'show-original') {
           this.restore(record);
         }
+        if (
+          detail === 'show-translation' &&
+          gmailBannerButton(record.state) === 'show-translation'
+        ) {
+          this.showTranslation(record);
+        }
+        if (detail === 'always-translate') this.setAutoLanguage(record);
+        if (detail === 'never-translate') this.setNeverLanguage(record);
         if (detail === 'close') this.dismiss(record);
       });
     }
+
+    if (options.auto === true) {
+      record.autoAttempted = true;
+      const autoKey = key.length > 0 ? key : '';
+      if (autoKey.length > 0) this.autoPendingKeys.add(autoKey);
+      void this.translate(record);
+    }
+    return record;
+  }
+
+  private openMenu(record: BannerRecord): void {
+    if (record.menuOpen || !record.host.isConnected) return;
+    if (this.openMenuRecord && this.openMenuRecord !== record) {
+      this.closeMenu(this.openMenuRecord);
+    }
+    record.menuOpen = true;
+    this.openMenuRecord = record;
+    record.menu.hidden = false;
+    record.gear.setAttribute('aria-expanded', 'true');
+    const outside = (event: Event): void => {
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      if (!path.includes(record.host)) this.closeMenu(record);
+    };
+    record.outsideHandler = outside;
+    for (const type of ['pointerdown', 'mousedown', 'click'] as const) {
+      this.doc.addEventListener(type, outside, true);
+    }
+    record.menu.querySelector<HTMLButtonElement>('[role^="menuitem"]')?.focus();
+  }
+
+  private closeMenu(record: BannerRecord, returnFocus = false): void {
+    if (!record.menuOpen) return;
+    record.menuOpen = false;
+    record.menu.hidden = true;
+    record.gear.setAttribute('aria-expanded', 'false');
+    if (record.outsideHandler) {
+      for (const type of ['pointerdown', 'mousedown', 'click'] as const) {
+        this.doc.removeEventListener(type, record.outsideHandler, true);
+      }
+      record.outsideHandler = null;
+    }
+    if (this.openMenuRecord === record) this.openMenuRecord = null;
+    if (returnFocus && record.gear.isConnected) record.gear.focus();
+  }
+
+  private handleMenuKeydown(record: BannerRecord, event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMenu(record, true);
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = [...record.menu.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]')];
+    if (items.length === 0) return;
+    event.preventDefault();
+    const activeElement = (record.shadow.activeElement ??
+      this.doc.activeElement) as HTMLElement | null;
+    const active = items.indexOf(activeElement as HTMLButtonElement);
+    let index = 0;
+    if (event.key === 'End') index = items.length - 1;
+    else if (event.key === 'ArrowDown') index = active < 0 ? 0 : (active + 1) % items.length;
+    else if (event.key === 'ArrowUp') {
+      index = active < 0 ? items.length - 1 : (active - 1 + items.length) % items.length;
+    }
+    items[index]?.focus();
   }
 
   private paint(record: BannerRecord): void {
     const kind = gmailBannerButton(record.state);
     if (kind === null) {
+      this.closeMenu(record);
       record.host.hidden = true;
       return;
     }
@@ -1395,10 +1820,34 @@ export class GmailBannerController {
     record.host.setAttribute('aria-label', this.labels.region);
     record.close.setAttribute('aria-label', this.labels.close);
     record.close.title = this.labels.close;
+    record.gear.setAttribute('aria-label', this.labels.menu);
+    record.gear.title = this.labels.menu;
+    record.menu.setAttribute('aria-label', this.labels.menu);
+    record.banner.classList.toggle(
+      'compact',
+      kind === 'show-original' || kind === 'show-translation',
+    );
 
-    if (kind === 'show-original') {
-      record.text.textContent = this.labels.detected(record.language);
-      record.action.textContent = this.labels.showOriginal;
+    const auto = isGmailAutoTranslateLanguage(record.language, this.prefs.autoLanguages ?? []);
+    const never = isGmailNeverTranslateLanguage(record.language, this.prefs.neverLanguages ?? []);
+    record.menuTranslate.textContent = this.labels.translateNow(record.language);
+    record.menuAuto.setAttribute('aria-label', this.labels.alwaysTranslate(record.language));
+    record.menuNever.setAttribute('aria-label', this.labels.neverTranslate(record.language));
+    record.menuAuto.querySelector('span:last-child')!.textContent = this.labels.alwaysTranslate(
+      record.language,
+    );
+    record.menuNever.querySelector('span:last-child')!.textContent = this.labels.neverTranslate(
+      record.language,
+    );
+    record.menuAuto.setAttribute('aria-checked', auto ? 'true' : 'false');
+    record.menuNever.setAttribute('aria-checked', never ? 'true' : 'false');
+    record.autoCheck.textContent = auto ? '✓' : '';
+    record.neverCheck.textContent = never ? '✓' : '';
+
+    if (kind === 'show-original' || kind === 'show-translation') {
+      record.text.textContent = this.labels.translated(record.language, this.prefs.targetLanguage);
+      record.action.textContent =
+        kind === 'show-original' ? this.labels.showOriginal : this.labels.showTranslation;
       record.action.disabled = false;
       return;
     }
@@ -1414,7 +1863,11 @@ export class GmailBannerController {
       await this.translate(record);
       return;
     }
-    if (kind === 'show-original') this.restore(record);
+    if (kind === 'show-original') {
+      this.restore(record);
+      return;
+    }
+    if (kind === 'show-translation') this.showTranslation(record);
   }
 
   private async translate(record: BannerRecord): Promise<void> {
@@ -1448,24 +1901,124 @@ export class GmailBannerController {
       }
     } finally {
       record.controller = null;
+      const key = gmailMessageKey(record.body);
+      if (key.length > 0) {
+        this.autoPendingKeys.delete(key);
+        if (record.state.phase === 'translated') {
+          this.translatedKeys.add(key);
+          this.translationsByKey.set(
+            key,
+            record.models.map((applied) => ({
+              source: applied.model.source,
+              text: applied.text,
+            })),
+          );
+        }
+      }
       this.paint(record);
     }
   }
 
-  private restore(record: BannerRecord): void {
+  /** Shows the cached translation again without asking the engine. */
+  private showTranslation(record: BannerRecord): void {
+    if (record.state.phase !== 'original' || record.models.length === 0) return;
     record.controller?.abort();
-    this.restoreRecord(record);
+    for (const applied of record.models) reapplyApplied(applied);
+    record.state = gmailBannerAfterShowTranslation(record.state);
+    this.paint(record);
+  }
+
+  /**
+   * Rebuilds the block models for a replaced message node and applies the translation
+   * remembered under its message id. Gmail re-renders a row rather than the whole thread,
+   * so this keeps the translated bar without asking for the same text again.
+   */
+  private applyCachedTranslation(
+    record: BannerRecord,
+    cached: readonly CachedTranslation[],
+  ): boolean {
+    const remaining = [...cached];
+    const applied: AppliedBlock[] = [];
+    for (const block of listTranslatableBlocks(record.body)) {
+      if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, null)) continue;
+      const model = buildSegment(block);
+      if (!model) continue;
+      const index = remaining.findIndex((entry) => entry.source === model.source);
+      const entry = index >= 0 ? remaining.splice(index, 1)[0] : undefined;
+      if (!entry) continue;
+      const created: Text[] = [];
+      applyTranslation(model, entry.text, created);
+      model.block.setAttribute('data-sakutto-gmail-translated', '1');
+      applied.push({ model, text: entry.text, created });
+    }
+    if (applied.length === 0) return false;
+    record.models = applied;
+    return true;
+  }
+
+  private restore(record: BannerRecord): void {
+    if (record.state.phase !== 'translated') return;
+    record.controller?.abort();
+    // Keep the cached blocks so the action can toggle back without a request.
+    this.restoreRecord(record, true);
     record.state = gmailBannerAfterShowOriginal(record.state);
     this.paint(record);
   }
 
-  private restoreRecord(record: BannerRecord): void {
+  private restoreRecord(record: BannerRecord, keepModels = false): void {
     for (const applied of record.models) restoreApplied(applied);
-    record.models = [];
+    if (!keepModels) record.models = [];
+  }
+
+  private setAutoLanguage(record: BannerRecord): void {
+    const next = toggleGmailAutoTranslateLanguage(record.language, this.languageLists());
+    this.prefs = {
+      ...this.prefs,
+      autoLanguages: next.auto,
+      neverLanguages: next.never,
+    };
+    this.onLanguagesChange(next);
+    this.paint(record);
+    if (record.state.phase === 'offer' && next.auto.includes(record.language)) {
+      record.autoAttempted = true;
+      void this.translate(record);
+    }
+  }
+
+  private setNeverLanguage(record: BannerRecord): void {
+    const next = toggleGmailNeverTranslateLanguage(record.language, this.languageLists());
+    this.prefs = {
+      ...this.prefs,
+      autoLanguages: next.auto,
+      neverLanguages: next.never,
+    };
+    this.onLanguagesChange(next);
+    if (next.never.includes(record.language)) {
+      record.controller?.abort();
+      this.closeMenu(record);
+      this.restoreRecord(record);
+      record.host.remove();
+      this.records.delete(record.body);
+      const key = gmailMessageKey(record.body);
+      if (key.length > 0) {
+        this.translatedKeys.delete(key);
+        this.translationsByKey.delete(key);
+      }
+      return;
+    }
+    this.paint(record);
+  }
+
+  private languageLists(): GmailTranslateLanguages {
+    return {
+      auto: [...(this.prefs.autoLanguages ?? [])],
+      never: [...(this.prefs.neverLanguages ?? [])],
+    };
   }
 
   private dismiss(record: BannerRecord): void {
     record.controller?.abort();
+    this.closeMenu(record);
     this.restoreRecord(record);
     record.state = gmailBannerAfterDismiss(record.state);
     const key = gmailMessageKey(record.body);
@@ -1476,11 +2029,15 @@ export class GmailBannerController {
 
   private resetBanners(): void {
     for (const record of [...this.records.values()]) {
+      this.closeMenu(record);
       record.controller?.abort();
       this.restoreRecord(record);
       record.host.remove();
     }
     this.records.clear();
+    this.translatedKeys.clear();
+    this.autoPendingKeys.clear();
+    this.translationsByKey.clear();
   }
 }
 
@@ -1580,9 +2137,14 @@ export async function translateGmailBody(
     const created: Text[] = [];
     applyTranslation(job.model, text, created);
     job.model.block.setAttribute('data-sakutto-gmail-translated', '1');
-    applied.push({ model: job.model, created });
+    applied.push({ model: job.model, text, created });
   }
   return applied;
+}
+
+function reapplyApplied(applied: AppliedBlock): void {
+  applyTranslation(applied.model, applied.text, applied.created);
+  applied.model.block.setAttribute('data-sakutto-gmail-translated', '1');
 }
 
 function restoreApplied(applied: AppliedBlock): void {
@@ -1600,4 +2162,8 @@ function isPageTranslated(body: Element): boolean {
 
 function glossaryKey(glossary: readonly GlossaryEntry[] | undefined): string {
   return (glossary ?? []).map((entry) => `${entry.source}\u0000${entry.target}`).join('\u0001');
+}
+
+function languageListKey(languages: readonly string[] | undefined): string {
+  return [...(languages ?? [])].sort().join('\u0000');
 }

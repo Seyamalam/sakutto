@@ -10,13 +10,20 @@ import {
   PLAMO_NOTICE_VERSION,
   SETTINGS_SCHEMA_VERSION,
   createDefaultSettings,
+  gmailTranslateLanguagePreference,
+  isGmailAutoTranslateLanguage,
+  isGmailNeverTranslateLanguage,
   isTierPreference,
+  normalizeGmailLanguageList,
   normalizeTranslationPopupSize,
   normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
   normalizeVideoCaptionPositions,
   needsLicenseReconsent,
   normalizeSettings,
+  removeGmailTranslateLanguage,
+  toggleGmailAutoTranslateLanguage,
+  toggleGmailNeverTranslateLanguage,
   type Settings,
 } from '@/shared/settings';
 
@@ -55,6 +62,8 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     videoCaptionPositions: {},
     captionCustomHosts: [],
     gmailTranslateBanner: true,
+    gmailAutoTranslateLangs: [],
+    gmailNeverTranslateLangs: [],
     ...overrides,
   };
 }
@@ -282,6 +291,51 @@ describe('settings defaults', () => {
         'en-US',
       ).gmailTranslateBanner,
     ).toBe(true);
+  });
+
+  it('normalizes Gmail auto/never language lists and keeps them mutually exclusive', () => {
+    const settings = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+        gmailAutoTranslateLangs: ['EN', 'fr', 'en', 'xx', 7],
+        gmailNeverTranslateLangs: ['fr', 'ja', 'ja'],
+      },
+      'en-US',
+    );
+    expect(settings.gmailAutoTranslateLangs).toEqual(['en']);
+    expect(settings.gmailNeverTranslateLangs).toEqual(['fr', 'ja']);
+  });
+
+  it('toggles language rules without allowing the same language in both lists', () => {
+    const empty = { auto: [] as string[], never: [] as string[] };
+    expect(normalizeGmailLanguageList(['pt-BR', 'zh-Hant'])).toEqual(['pt', 'zh-hant']);
+
+    const auto = toggleGmailAutoTranslateLanguage('en', empty);
+    expect(auto).toEqual({ auto: ['en'], never: [] });
+    expect(isGmailAutoTranslateLanguage('en', auto.auto)).toBe(true);
+    expect(isGmailNeverTranslateLanguage('en', auto.never)).toBe(false);
+    expect(gmailTranslateLanguagePreference('en', auto)).toBe('auto');
+
+    const never = toggleGmailNeverTranslateLanguage('en', auto);
+    expect(never).toEqual({ auto: [], never: ['en'] });
+    expect(gmailTranslateLanguagePreference('en', never)).toBe('never');
+
+    const backToAuto = toggleGmailAutoTranslateLanguage('en', never);
+    expect(backToAuto).toEqual({ auto: ['en'], never: [] });
+
+    expect(toggleGmailAutoTranslateLanguage('en', backToAuto)).toEqual({
+      auto: [],
+      never: [],
+    });
+    expect(toggleGmailNeverTranslateLanguage('en', never)).toEqual({
+      auto: [],
+      never: [],
+    });
+    expect(removeGmailTranslateLanguage('en', backToAuto)).toEqual({
+      auto: [],
+      never: [],
+    });
   });
 
   it('clamps caption size and keeps only valid custom hosts', () => {

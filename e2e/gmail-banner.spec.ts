@@ -16,7 +16,7 @@ async function openGmail(page: Page): Promise<void> {
 async function dispatchBannerAction(
   page: Page,
   messageId: string,
-  detail: 'translate' | 'show-original' | 'close',
+  detail: 'translate' | 'show-original' | 'show-translation' | 'close',
 ): Promise<void> {
   await page.locator(`[data-sakutto-gmail-banner="${messageId}"]`).evaluate((element, detail) => {
     element.dispatchEvent(new CustomEvent('sakutto-gmail-action', { detail }));
@@ -63,9 +63,45 @@ test.describe('Gmail translate banner', () => {
       await page.screenshot({ path: 'e2e-results/gmail-banner-translated.png', fullPage: true });
 
       await dispatchBannerAction(page, 'msg-1', 'show-original');
-      await expect(english).toHaveAttribute('data-sakutto-gmail-phase', 'offer');
+      await expect(english).toHaveAttribute('data-sakutto-gmail-phase', 'original');
       await expect(body).not.toContainText('§ja§');
       await expect(body).toContainText('The release candidate is ready for review.');
+
+      await dispatchBannerAction(page, 'msg-1', 'show-translation');
+      await expect(english).toHaveAttribute('data-sakutto-gmail-phase', 'translated');
+      await expect(body).toContainText('§ja§');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('auto-translates a remembered source language and never skips it', async () => {
+    await resetExtensionStorage(extension.worker, {
+      targetLanguage: 'ja',
+      gmailTranslateBanner: true,
+      gmailAutoTranslateLangs: ['en'],
+    });
+    const page = await extension.context.newPage();
+    try {
+      await openGmail(page);
+      await injectContentScript(extension.worker, page);
+      await resetExtensionStorage(extension.worker, {
+        targetLanguage: 'ja',
+        gmailTranslateBanner: true,
+        gmailAutoTranslateLangs: ['en'],
+      });
+
+      const english = page.locator('[data-sakutto-gmail-banner="msg-1"]');
+      const body = page.locator('[data-message-id="msg-1"] .a3s');
+      await expect(english).toHaveAttribute('data-sakutto-gmail-phase', 'translated');
+      await expect(body).toContainText('§ja§');
+
+      await resetExtensionStorage(extension.worker, {
+        targetLanguage: 'ja',
+        gmailTranslateBanner: true,
+        gmailNeverTranslateLangs: ['en'],
+      });
+      await expect(english).toHaveCount(0);
     } finally {
       await page.close();
     }

@@ -34,6 +34,8 @@ export async function resetExtensionStorage(
     translationPopupSize?: number;
     translationPopupWidth?: number;
     gmailTranslateBanner?: boolean;
+    gmailAutoTranslateLangs?: string[];
+    gmailNeverTranslateLangs?: string[];
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
@@ -43,6 +45,8 @@ export async function resetExtensionStorage(
   const translationPopupSize = options.translationPopupSize ?? 100;
   const translationPopupWidth = options.translationPopupWidth ?? 0;
   const gmailTranslateBanner = options.gmailTranslateBanner !== false;
+  const gmailAutoTranslateLangs = options.gmailAutoTranslateLangs ?? [];
+  const gmailNeverTranslateLangs = options.gmailNeverTranslateLangs ?? [];
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -79,6 +83,8 @@ export async function resetExtensionStorage(
     translationPopupSize,
     translationPopupWidth,
     gmailTranslateBanner,
+    gmailAutoTranslateLangs,
+    gmailNeverTranslateLangs,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
