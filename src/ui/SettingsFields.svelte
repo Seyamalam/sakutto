@@ -247,6 +247,20 @@
   <label class="check">
     <input
       type="checkbox"
+      data-sakutto="gmail-banner"
+      checked={settings.gmailTranslateBanner}
+      onchange={(event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        onChange({ gmailTranslateBanner: input.checked });
+      }}
+    />
+    <span>{t('settingsGmailBanner')}</span>
+  </label>
+  <p class="muted help">{t('settingsGmailBannerHelp')}</p>
+
+  <label class="check">
+    <input
+      type="checkbox"
       data-sakutto="video-captions"
       checked={settings.translateVideoCaptions}
       onchange={(event) => {

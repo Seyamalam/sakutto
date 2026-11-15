@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "Показать перевод"
+  },
+  "gmailBannerDetected": {
+    "message": "Похоже, это письмо написано на языке $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Перевести на $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Показать оригинал"
+  },
+  "gmailBannerTranslating": {
+    "message": "Перевод письма…"
+  },
+  "gmailBannerRegion": {
+    "message": "Перевод сообщений Gmail"
+  },
+  "settingsGmailBanner": {
+    "message": "Предлагать перевод писем Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Если включено, над текстом открытого письма Gmail на другом языке появляется небольшая подсказка. Письмо переводится только после нажатия. Sakutto нужен доступ к mail.google.com; разрешите его во всплывающем окне или в списке сайтов."
   }
 }

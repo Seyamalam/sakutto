@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "Tampilkan terjemahan"
+  },
+  "gmailBannerDetected": {
+    "message": "Email ini tampaknya ditulis dalam $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Terjemahkan ke $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Tampilkan asli"
+  },
+  "gmailBannerTranslating": {
+    "message": "Menerjemahkan email ini…"
+  },
+  "gmailBannerRegion": {
+    "message": "Terjemahan pesan Gmail"
+  },
+  "settingsGmailBanner": {
+    "message": "Tawarkan terjemahan pesan Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Saat aktif, pesan Gmail yang dibuka dan ditulis dalam bahasa lain menampilkan spanduk kecil di atas isinya. Pesan hanya diterjemahkan setelah Anda mengklik. Sakutto memerlukan akses ke mail.google.com; berikan dari popup atau daftar situs."
   }
 }

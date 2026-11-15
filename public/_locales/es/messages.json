@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "Mostrar traducción"
+  },
+  "gmailBannerDetected": {
+    "message": "Parece que este correo está escrito en $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Traducir a $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Mostrar original"
+  },
+  "gmailBannerTranslating": {
+    "message": "Traduciendo este correo…"
+  },
+  "gmailBannerRegion": {
+    "message": "Traducción de mensajes de Gmail"
+  },
+  "settingsGmailBanner": {
+    "message": "Ofrecer traducir mensajes de Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Cuando está activado, un mensaje de Gmail abierto escrito en otro idioma muestra un pequeño aviso sobre el cuerpo. El mensaje se traduce solo después de hacer clic. Sakutto necesita acceso a mail.google.com; concédelo desde la ventana emergente o la lista de sitios."
   }
 }

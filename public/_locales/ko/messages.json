@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "번역 보기"
+  },
+  "gmailBannerDetected": {
+    "message": "이 이메일은 $LANG$로 작성된 것 같습니다.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "$TARGET$로 번역",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "원문 보기"
+  },
+  "gmailBannerTranslating": {
+    "message": "이 이메일을 번역하는 중…"
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail 메일 번역"
+  },
+  "settingsGmailBanner": {
+    "message": "Gmail 메일 번역 제안"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "켜면 다른 언어로 작성된 Gmail 메일을 열었을 때 본문 위에 작은 안내가 표시됩니다. 메일은 클릭한 뒤에만 번역됩니다. Sakutto에는 mail.google.com 접근 권한이 필요합니다. 팝업이나 사이트 목록에서 허용하세요."
   }
 }

@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "แสดงคำแปล"
+  },
+  "gmailBannerDetected": {
+    "message": "อีเมลนี้ดูเหมือนเขียนเป็น$LANG$",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "แปลเป็น$TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "แสดงต้นฉบับ"
+  },
+  "gmailBannerTranslating": {
+    "message": "กำลังแปลอีเมลนี้…"
+  },
+  "gmailBannerRegion": {
+    "message": "การแปลอีเมล Gmail"
+  },
+  "settingsGmailBanner": {
+    "message": "เสนอแปลอีเมล Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "เมื่อเปิดใช้ อีเมล Gmail ที่เปิดอยู่ซึ่งเขียนด้วยภาษาอื่นจะแสดงแถบเล็ก ๆ เหนือเนื้อหา อีเมลจะถูกแปลหลังจากคุณคลิกเท่านั้น Sakutto ต้องได้รับอนุญาตให้เข้าถึง mail.google.com โดยอนุญาตจากป๊อปอัปหรือรายการไซต์"
   }
 }

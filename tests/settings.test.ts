@@ -54,6 +54,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     videoCaptionOriginalToggle: true,
     videoCaptionPositions: {},
     captionCustomHosts: [],
+    gmailTranslateBanner: true,
     ...overrides,
   };
 }
@@ -250,6 +251,37 @@ describe('settings defaults', () => {
         'en-US',
       ).videoCaptionDisplay,
     ).toBe('bilingual');
+  });
+
+  it('defaults the Gmail banner on and keeps an explicit opt-out', () => {
+    const defaults = normalizeSettings(
+      {
+        schemaVersion: SETTINGS_SCHEMA_VERSION,
+        targetLanguage: 'en',
+      },
+      'en-US',
+    );
+    expect(defaults.gmailTranslateBanner).toBe(true);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          gmailTranslateBanner: false,
+        },
+        'en-US',
+      ).gmailTranslateBanner,
+    ).toBe(false);
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          gmailTranslateBanner: 'off',
+        },
+        'en-US',
+      ).gmailTranslateBanner,
+    ).toBe(true);
   });
 
   it('clamps caption size and keeps only valid custom hosts', () => {

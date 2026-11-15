@@ -209,6 +209,11 @@ export interface Settings {
   videoCaptionPositions: VideoCaptionPositions;
   /** Extra hosts that run the generic HTML5 caption adapter. YouTube and X stay built-in. */
   captionCustomHosts: string[];
+  /**
+   * When true, an opened Gmail message whose body is not in the target language gets a
+   * small translate banner. The message body is translated only after the reader clicks.
+   */
+  gmailTranslateBanner: boolean;
 }
 
 export type SettingsPatch = Partial<
@@ -244,6 +249,7 @@ export type SettingsPatch = Partial<
     | 'videoCaptionOriginalToggle'
     | 'videoCaptionPositions'
     | 'captionCustomHosts'
+    | 'gmailTranslateBanner'
   >
 > & {
   shortcutsEnabled?: Partial<ShortcutEnabled>;
@@ -282,6 +288,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   videoCaptionOriginalToggle: true,
   videoCaptionPositions: {},
   captionCustomHosts: [],
+  gmailTranslateBanner: true,
 });
 
 export function createDefaultSettings(uiLanguage: string): Settings {
@@ -346,6 +353,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     videoCaptionOriginalToggle: value.videoCaptionOriginalToggle !== false,
     videoCaptionPositions: normalizeVideoCaptionPositions(value.videoCaptionPositions),
     captionCustomHosts: normalizeCaptionCustomHosts(value.captionCustomHosts),
+    gmailTranslateBanner: value.gmailTranslateBanner !== false,
   };
 }
 

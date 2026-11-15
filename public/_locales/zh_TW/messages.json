@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "顯示譯文"
+  },
+  "gmailBannerDetected": {
+    "message": "這封郵件似乎是用$LANG$寫的。",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "翻譯成$TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "顯示原文"
+  },
+  "gmailBannerTranslating": {
+    "message": "正在翻譯這封郵件…"
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail 郵件翻譯"
+  },
+  "settingsGmailBanner": {
+    "message": "為 Gmail 郵件提供翻譯"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "開啟後，打開以其他語言撰寫的 Gmail 郵件時，內文上方會顯示一個小提示。只有點擊後才會翻譯郵件。Sakutto 需要存取 mail.google.com 的權限；請在彈出視窗或網站清單中授予。"
   }
 }

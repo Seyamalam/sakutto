@@ -2,6 +2,12 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### Features
+
+- Gmail messages get a Sakutto banner above the body when the message is written in a language other than the target. It identifies the source language, translates only that message after a click, toggles back with Show original, and can be closed per message. Each expanded message in a thread has its own banner, and the setting can turn the feature off. The model loads only when Translate is clicked.
+
 ## [1.5.1] - 2026-11-14
 
 ### Bug Fixes

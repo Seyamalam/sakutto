@@ -44,6 +44,10 @@ While a message box, a textarea, or another editable field is focused, Alt+T (Op
 
 The popup has a **Translate typed text** button, and the options page has the same button. It opens a small extension page with a source box and a result box, so you can type or paste a paragraph and translate it without touching a page. It uses the same PLaMo model, the same licence consent, and the same load flow as page translation, and the direction follows the same target-language setting. The built-in translator is not used there: typed text is translated by PLaMo only, and a language PLaMo does not support is refused in the page rather than quietly handed to Chrome. The result has a Copy button.
 
+## Gmail messages
+
+When you open a Gmail message written in a language other than your target, a small banner appears above the message body. It names the language it detected and offers **Translate to …**. Nothing is translated until you click, and the PLaMo model is not loaded or warmed before then. After the translation, the same banner offers **Show original** to put the source text back. Each expanded message in a thread gets its own banner, close (×) hides the banner for that message, and the setting can turn the feature off. Same-language messages, very short bodies, and compose or reply editors are left alone. The banner follows Gmail's single-page navigation and asks for access to `mail.google.com` only through the existing optional host permission; grant it from the popup or the site list.
+
 ## PDFs
 
 Chrome draws a PDF in its own viewer, and no extension can read that viewer's document — so page translation cannot attach to it. Sakutto reads the PDF itself instead. With a PDF open, the popup offers **Translate this PDF** (the right-click menu has the same item): the extension fetches the same file the tab is showing, opens it in its own reader in a new tab, and translates it there. Chrome allows four commands with a default key and the four page commands use them, so opening a PDF ships without one; bind it in the browser's shortcut editor if you want a key.
@@ -143,7 +147,7 @@ pnpm bench:pdf --keep-cache  # reuse translations already in the profile
 | `scripting`        | Injects the content script into the active tab after you ask for a translation.      |
 | `contextMenus`     | Adds Translate page, Translate selection and Translate PDF to the right-click menu.  |
 
-Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers.
+Optional host permissions (`https://*/*` and `http://*/*`) are requested only when you turn on automatic translation for a site or use a feature that needs that site, such as the Gmail banner. Nothing is requested for every site at install time. The PDF reader adds no permission: it reads the file from the origin the `activeTab` grant already covers.
 
 ## Support
 

@@ -5,6 +5,7 @@ import { ComposeController, type ComposeLabels, type ComposePreferences } from '
 import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
 import { fakeTranslate } from '@/dom/fake-engine';
+import { GmailBannerController, isGmailHost, type GmailBannerLabels } from '@/dom/gmail-banner';
 import type { OverlayLabels } from '@/dom/overlay';
 import { PageSession, preferencesFor } from '@/dom/session';
 import { VideoCaptionSession, type CaptionSessionPreferences } from '@/captions/session';
@@ -22,7 +23,13 @@ import { hasLicenseConsent } from '@/shared/agreement';
 import type { ModelStatus } from '@/shared/engine-status';
 import { mergeGlossary } from '@/shared/glossary';
 import { currentUiLanguage, t } from '@/shared/i18n';
-import { effectivePageTarget, isTargetLanguage, type TargetLanguage } from '@/shared/languages';
+import {
+  displayLanguage,
+  effectivePageTarget,
+  isTargetLanguage,
+  type TargetLanguage,
+} from '@/shared/languages';
+import { displayTargetLanguage } from '@/ui/language-label';
 import {
   boundShortcut,
   defaultShortcutEnabled,
@@ -211,6 +218,19 @@ function captionLabels(): CaptionOverlayLabels {
   };
 }
 
+function gmailBannerLabels(): GmailBannerLabels {
+  const uiLanguage = currentUiLanguage();
+  return {
+    region: t('gmailBannerRegion'),
+    detected: (language) => t('gmailBannerDetected', [displayLanguage(language, uiLanguage)]),
+    translate: (language) =>
+      t('gmailBannerTranslate', [displayTargetLanguage(language, uiLanguage)]),
+    showOriginal: t('gmailBannerShowOriginal'),
+    translating: t('gmailBannerTranslating'),
+    close: t('close'),
+  };
+}
+
 function captionPreferencesFor(
   settings: Settings,
   rule: SiteRule,
@@ -232,6 +252,16 @@ function captionPreferencesFor(
     glossary: glossary.length > 0 ? glossary : undefined,
     customHosts: settings.captionCustomHosts,
     tier: null,
+  };
+}
+
+function gmailBannerPreferencesFor(settings: Settings, rule: SiteRule, host: string) {
+  const glossary = mergeGlossary(settings.glossary, rule.glossary);
+  return {
+    enabled: settings.gmailTranslateBanner && isGmailHost(host) && rule.auto !== 'always',
+    targetLanguage: effectivePageTarget(settings.targetLanguage, rule.targetLanguage),
+    form: settings.form,
+    ...(glossary.length > 0 ? { glossary } : {}),
   };
 }
 
@@ -284,6 +314,7 @@ export default defineContentScript({
     let lastCommandAt = 0;
     let compose: ComposeController | null = null;
     let captions: VideoCaptionSession | null = null;
+    let gmailBanner: GmailBannerController | null = null;
     let modelState: ModelStatus['state'] | null = null;
     let plamoReady = false;
     let modelStatusKnown = false;
@@ -474,6 +505,16 @@ export default defineContentScript({
       });
       if (captionPreferencesFor(liveSettings, liveRule, host).enabled) captions.start();
 
+      gmailBanner = new GmailBannerController(document, {
+        engine,
+        labels: gmailBannerLabels(),
+        preferences: gmailBannerPreferencesFor(liveSettings, liveRule, host),
+        onWarm: () => {
+          if (!__SAKUTTO_FAKE_ENGINE__) void requestEngineWarm();
+        },
+      });
+      gmailBanner.start();
+
       const detected = await detectDocumentLanguage(document);
       session.setDetectedLanguage(detected);
 
@@ -530,6 +571,8 @@ export default defineContentScript({
         );
         captions?.setLabels(captionLabels());
         captions?.setPreferences(captionPreferencesFor(liveSettings, liveRule, host));
+        gmailBanner?.setLabels(gmailBannerLabels());
+        gmailBanner?.setPreferences(gmailBannerPreferencesFor(liveSettings, liveRule, host));
       };
 
       subscribeSettings(() => {

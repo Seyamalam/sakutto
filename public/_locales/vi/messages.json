@@ -1400,5 +1400,36 @@
   },
   "pdfOverflowOpen": {
     "message": "Hiện bản dịch"
+  },
+  "gmailBannerDetected": {
+    "message": "Email này có vẻ được viết bằng $LANG$.",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "Dịch sang $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "Hiện bản gốc"
+  },
+  "gmailBannerTranslating": {
+    "message": "Đang dịch email này…"
+  },
+  "gmailBannerRegion": {
+    "message": "Dịch email Gmail"
+  },
+  "settingsGmailBanner": {
+    "message": "Đề nghị dịch email Gmail"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "Khi bật, email Gmail đang mở được viết bằng ngôn ngữ khác sẽ hiện một dải nhỏ phía trên nội dung. Email chỉ được dịch sau khi bạn nhấp. Sakutto cần quyền truy cập mail.google.com; hãy cấp quyền từ cửa sổ bật lên hoặc danh sách trang web."
   }
 }

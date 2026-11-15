@@ -1404,5 +1404,36 @@
   },
   "pdfOverflowOpen": {
     "message": "訳を表示"
+  },
+  "gmailBannerDetected": {
+    "message": "このメールは$LANG$で書かれているようです。",
+    "placeholders": {
+      "lang": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerTranslate": {
+    "message": "$TARGET$に翻訳",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "gmailBannerShowOriginal": {
+    "message": "原文を表示"
+  },
+  "gmailBannerTranslating": {
+    "message": "このメールを翻訳しています…"
+  },
+  "gmailBannerRegion": {
+    "message": "Gmail メールの翻訳"
+  },
+  "settingsGmailBanner": {
+    "message": "Gmail のメールを翻訳する"
+  },
+  "settingsGmailBannerHelp": {
+    "message": "オンにすると、別の言語で書かれた Gmail のメールを開いたとき、本文の上に小さなバナーが出ます。翻訳はクリックしたときだけ行います。mail.google.com へのアクセス許可が必要です。ポップアップかサイト一覧から許可してください。"
   }
 }

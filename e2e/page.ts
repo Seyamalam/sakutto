@@ -33,6 +33,7 @@ export async function resetExtensionStorage(
     captionCustomHosts?: string[];
     translationPopupSize?: number;
     translationPopupWidth?: number;
+    gmailTranslateBanner?: boolean;
   } = {},
 ): Promise<void> {
   const targetLanguage = options.targetLanguage ?? 'en';
@@ -41,6 +42,7 @@ export async function resetExtensionStorage(
   const captionCustomHosts = options.captionCustomHosts ?? [];
   const translationPopupSize = options.translationPopupSize ?? 100;
   const translationPopupWidth = options.translationPopupWidth ?? 0;
+  const gmailTranslateBanner = options.gmailTranslateBanner !== false;
   const settings = {
     schemaVersion: 1,
     targetLanguage,
@@ -76,6 +78,7 @@ export async function resetExtensionStorage(
     captionCustomHosts,
     translationPopupSize,
     translationPopupWidth,
+    gmailTranslateBanner,
   };
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -92,19 +95,31 @@ export async function resetExtensionStorage(
       const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
       const value = await chrome.storage.local.get('settings');
       return value.settings as
-        { translateVideoCaptions?: boolean; targetLanguage?: string } | undefined;
+        | {
+            translateVideoCaptions?: boolean;
+            targetLanguage?: string;
+            gmailTranslateBanner?: boolean;
+          }
+        | undefined;
     });
     if (
       stored?.translateVideoCaptions === translateVideoCaptions &&
-      stored.targetLanguage === targetLanguage
+      stored.targetLanguage === targetLanguage &&
+      stored.gmailTranslateBanner === gmailTranslateBanner
     ) {
       await new Promise((resolve) => setTimeout(resolve, 40));
       const again = await worker.evaluate(async () => {
         const chrome = (globalThis as unknown as { chrome: ExtensionChrome }).chrome;
         const value = await chrome.storage.local.get('settings');
-        return value.settings as { translateVideoCaptions?: boolean } | undefined;
+        return value.settings as
+          { translateVideoCaptions?: boolean; gmailTranslateBanner?: boolean } | undefined;
       });
-      if (again?.translateVideoCaptions === translateVideoCaptions) return;
+      if (
+        again?.translateVideoCaptions === translateVideoCaptions &&
+        again.gmailTranslateBanner === gmailTranslateBanner
+      ) {
+        return;
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 40));
   }

@@ -1,0 +1,352 @@
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  GMAIL_BANNER_TAG,
+  GMAIL_MIN_BODY_CHARS,
+  GmailBannerController,
+  detectGmailMessageLanguage,
+  findGmailMessageBodies,
+  gmailBannerAfterDismiss,
+  gmailBannerAfterShowOriginal,
+  gmailBannerAfterTranslate,
+  gmailBannerAfterTranslated,
+  gmailBannerButton,
+  gmailBannerShadow,
+  gmailMessageKey,
+  initialGmailBannerState,
+  isGmailHost,
+  shouldAutoInjectGmailBanner,
+  shouldOfferGmailTranslation,
+  translateGmailBody,
+} from '@/dom/gmail-banner';
+import type { PageEngine } from '@/dom/session';
+
+const labels = {
+  region: 'Gmail message translation',
+  detected: (language: string) => `This email appears to be written in ${language}.`,
+  translate: (language: string) => `Translate to ${language}`,
+  showOriginal: 'Show original',
+  translating: 'Translating this email…',
+  close: 'Close',
+};
+
+const PREFERENCES = {
+  enabled: true,
+  targetLanguage: 'ja',
+  form: 'polite' as const,
+};
+
+function body(html: string): HTMLElement {
+  document.body.innerHTML = html;
+  const element = document.querySelector<HTMLElement>('div.a3s');
+  if (!element) throw new Error('missing message body');
+  return element;
+}
+
+function immediate(render: (text: string, target: string) => string = (text) => `§${text}`) {
+  const engine: PageEngine = {
+    async *translate(segments, options) {
+      for (const segment of segments) {
+        yield { id: segment.id, final: render(segment.text, options.tgt), engine: 'plamo' };
+      }
+    },
+  };
+  return engine;
+}
+
+function shadowButton(host: Element, label: string): HTMLButtonElement {
+  const button = [...(gmailBannerShadow(host)?.querySelectorAll('button') ?? [])].find(
+    (candidate) =>
+      candidate.textContent === label || candidate.getAttribute('aria-label') === label,
+  );
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
+  return button;
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error('condition did not settle');
+}
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('Gmail host and message discovery', () => {
+  it('limits the banner to Gmail hosts', () => {
+    expect(isGmailHost('mail.google.com')).toBe(true);
+    expect(isGmailHost('MAIL.GOOGLE.COM')).toBe(true);
+    expect(isGmailHost('inbox.mail.google.com')).toBe(true);
+    expect(isGmailHost('www.google.com')).toBe(false);
+    expect(isGmailHost('notmail.google.com')).toBe(false);
+  });
+
+  it('auto-injects only when the setting and host grant are on', () => {
+    expect(
+      shouldAutoInjectGmailBanner({
+        settingOn: true,
+        host: 'mail.google.com',
+        originAllowed: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoInjectGmailBanner({
+        settingOn: false,
+        host: 'mail.google.com',
+        originAllowed: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoInjectGmailBanner({
+        settingOn: true,
+        host: 'mail.google.com',
+        originAllowed: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoInjectGmailBanner({
+        settingOn: true,
+        host: 'example.com',
+        originAllowed: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('finds message bodies but not compose editors', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1"><div class="a3s aiL">First message body</div></div>
+      <div contenteditable="true"><div class="a3s aiL">Draft in a compose editor</div></div>
+      <div role="textbox"><div class="a3s aiL">Reply draft</div></div>
+      <div data-message-id="m2"><div class="a3s aiL">Second message body</div></div>
+    `;
+    expect(findGmailMessageBodies(document).map((element) => element.textContent)).toEqual([
+      'First message body',
+      'Second message body',
+    ]);
+  });
+
+  it('reads a message id from the surrounding row', () => {
+    const element = body(
+      '<div data-message-id="thread-1"><div class="a3s aiL">Body with an id</div></div>',
+    );
+    expect(gmailMessageKey(element)).toBe('thread-1');
+  });
+});
+
+describe('Gmail language gating', () => {
+  it('detects English prose without trusting the Gmail interface language', () => {
+    const element = body(`
+      <div class="a3s aiL">
+        <div>Hi team, the release is ready for review and we should ship it this week.</div>
+      </div>
+    `);
+    expect(detectGmailMessageLanguage(element, 'ja')).toBe('en');
+    expect(
+      shouldOfferGmailTranslation({
+        text: element.textContent ?? '',
+        language: 'en',
+        targetLanguage: 'ja',
+      }),
+    ).toBe(true);
+  });
+
+  it('prefers an explicit lang attribute in the message', () => {
+    const element = body(`
+      <div class="a3s aiL" lang="fr">
+        <div>Bonjour, la réunion est reportée à demain matin.</div>
+      </div>
+    `);
+    expect(detectGmailMessageLanguage(element, 'ja')).toBe('fr');
+  });
+
+  it('does not offer the banner for the target language or for a short body', () => {
+    expect(
+      shouldOfferGmailTranslation({
+        text: 'This email is already in Japanese and should not be offered again.',
+        language: 'ja',
+        targetLanguage: 'ja',
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferGmailTranslation({
+        text: '短い',
+        language: 'ja',
+        targetLanguage: 'en',
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferGmailTranslation({
+        text: 'x'.repeat(GMAIL_MIN_BODY_CHARS - 1),
+        language: 'en',
+        targetLanguage: 'ja',
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferGmailTranslation({
+        text: 'This body is long enough to look like real prose for the banner.',
+        language: null,
+        targetLanguage: 'ja',
+      }),
+    ).toBe(false);
+  });
+
+  it('treats Easy Japanese as Japanese for this banner', () => {
+    expect(
+      shouldOfferGmailTranslation({
+        text: 'これは日本語のメールなので、同じ言語として扱います。',
+        language: 'ja',
+        targetLanguage: 'ja-easy',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not use the interface language as the message language', () => {
+    document.documentElement.lang = 'ja';
+    const element = body(`
+      <div class="a3s aiL">
+        <div>Please review the attached proposal before Friday.</div>
+      </div>
+    `);
+    expect(detectGmailMessageLanguage(element, 'ja')).toBe('en');
+  });
+});
+
+describe('Gmail banner state', () => {
+  it('moves from offer to translating to translated and back', () => {
+    const offer = initialGmailBannerState();
+    expect(gmailBannerButton(offer)).toBe('translate');
+    const translating = gmailBannerAfterTranslate(offer);
+    expect(gmailBannerButton(translating)).toBe('busy');
+    const translated = gmailBannerAfterTranslated(translating);
+    expect(gmailBannerButton(translated)).toBe('show-original');
+    expect(gmailBannerButton(gmailBannerAfterShowOriginal(translated))).toBe('translate');
+  });
+
+  it('removes the button after a dismiss and ignores later transitions', () => {
+    const dismissed = gmailBannerAfterDismiss(initialGmailBannerState());
+    expect(gmailBannerButton(dismissed)).toBeNull();
+    expect(gmailBannerAfterTranslate(dismissed)).toBe(dismissed);
+    expect(gmailBannerAfterTranslated(dismissed)).toBe(dismissed);
+    expect(gmailBannerAfterShowOriginal(dismissed)).toBe(dismissed);
+  });
+});
+
+describe('Gmail banner controller', () => {
+  it('mounts above a foreign-language body and translates only after a click', async () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL">
+          <div>Hi team, the release is ready for review and we should ship it this week.</div>
+        </div>
+      </div>
+    `);
+    const original = element.textContent;
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+
+    const host = element.previousElementSibling;
+    expect(host?.tagName).toBe(GMAIL_BANNER_TAG.toUpperCase());
+    expect(host?.getAttribute('data-sakutto-gmail-phase')).toBe('offer');
+    expect(element.textContent).toBe(original);
+
+    shadowButton(host!, 'Translate to ja').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'translated');
+    expect(element.textContent).toContain(
+      '§Hi team, the release is ready for review and we should ship it this week.',
+    );
+    expect(shadowButton(host!, 'Show original')).toBeDefined();
+
+    shadowButton(host!, 'Show original').click();
+    await waitFor(() => host?.getAttribute('data-sakutto-gmail-phase') === 'offer');
+    expect(element.textContent).toBe(original);
+    controller.dispose();
+  });
+
+  it('shows one banner per expanded message and skips same-language bodies', () => {
+    document.body.innerHTML = `
+      <div data-message-id="m1">
+        <div class="a3s aiL" lang="en">Hi team, the release is ready for review this week.</div>
+      </div>
+      <div data-message-id="m2">
+        <div class="a3s aiL" lang="ja">これは日本語のメールなので、バナーは出ません。</div>
+      </div>
+      <div data-message-id="m3">
+        <div class="a3s aiL" lang="en">Please review the proposal before Friday morning.</div>
+      </div>
+    `;
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    expect(document.querySelectorAll(GMAIL_BANNER_TAG)).toHaveLength(2);
+    controller.dispose();
+  });
+
+  it('hides the banner for that message after close', () => {
+    const element = body(`
+      <div data-message-id="m1">
+        <div class="a3s aiL">Hi team, the release is ready for review and we should ship it.</div>
+      </div>
+    `);
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+    });
+    controller.start();
+    const host = element.previousElementSibling;
+    shadowButton(host!, 'Close').click();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    controller.refresh();
+    expect(document.querySelector(GMAIL_BANNER_TAG)).toBeNull();
+    controller.dispose();
+  });
+
+  it('adds a banner when Gmail expands a message later', async () => {
+    document.body.innerHTML = '<div id="thread"></div>';
+    const controller = new GmailBannerController(document, {
+      engine: immediate(),
+      labels,
+      preferences: PREFERENCES,
+      debounceMs: 1,
+    });
+    controller.start();
+    const thread = document.querySelector('#thread');
+    if (!thread) throw new Error('missing thread');
+    thread.innerHTML = `
+      <div data-message-id="late">
+        <div class="a3s aiL" lang="en">A message loaded after the first scan of the thread.</div>
+      </div>
+    `;
+    await waitFor(() => document.querySelector(GMAIL_BANNER_TAG) !== null);
+    controller.dispose();
+  });
+});
+
+describe('Gmail body translation', () => {
+  it('leaves a body in the target language alone', async () => {
+    const element = body(`
+      <div class="a3s aiL">
+        <div>これは日本語のメールなので翻訳する必要はありません。</div>
+      </div>
+    `);
+    const before = element.innerHTML;
+    const applied = await translateGmailBody(element, immediate(), {
+      targetLanguage: 'ja',
+      form: 'polite',
+      language: 'ja',
+      signal: new AbortController().signal,
+    });
+    expect(applied).toHaveLength(0);
+    expect(element.innerHTML).toBe(before);
+  });
+});
