@@ -4,6 +4,8 @@
   <p><strong>ページも、PDF も、動画も、入力中の文も。端末の中で、PLaMo で翻訳。</strong></p>
   <p>
     <a href="https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl"><img src="https://img.shields.io/chrome-web-store/v/mhlbjjijfkoghmcjndgdimhdlfkhadfl?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store" alt="Chrome ウェブストア"></a>
+    <a href="https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl"><img src="https://img.shields.io/chrome-web-store/users/mhlbjjijfkoghmcjndgdimhdlfkhadfl" alt="Chrome ウェブストア ユーザー数"></a>
+    <a href="https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl"><img src="https://img.shields.io/chrome-web-store/rating/mhlbjjijfkoghmcjndgdimhdlfkhadfl" alt="Chrome ウェブストア 評価"></a>
     <a href="https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/"><img src="https://img.shields.io/amo/v/sakutto-local-ai-translation?logo=firefoxbrowser&logoColor=white&label=Firefox%20Add-ons" alt="Firefox Add-ons"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="ライセンス: MIT"></a>
     <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-v1.5.1-blue" alt="リリース v1.5.1"></a>
