@@ -937,9 +937,19 @@ export class PageSession {
    */
   private addBlock(block: Element, index: number): void {
     if (this.liveByBlock.has(block)) return;
-    if (isAlreadyTargetLanguage(block, this.prefs.targetLanguage, this.detectedLanguage)) return;
 
     const model = buildSegment(block);
+    if (
+      isAlreadyTargetLanguage(
+        block,
+        this.prefs.targetLanguage,
+        this.detectedLanguage,
+        model?.source,
+      )
+    ) {
+      return;
+    }
+
     if (!model) {
       // A container whose only text belongs to nested blocks is covered by those blocks.
       // Reporting it would turn every page with a menu or a form into a partial result.
@@ -969,7 +979,7 @@ export class PageSession {
       heading: /^H[1-6]$/u.test(block.tagName),
       solo: model.source.includes('\n'),
       kind: contentKind(block),
-      lang: languageOf(block, this.detectedLanguage),
+      lang: languageOf(block, this.detectedLanguage, model.source),
       index,
       band: bandForRect(block.getBoundingClientRect(), viewportHeight(block)),
       state: 'idle',

@@ -1,4 +1,5 @@
 import { canonicalChromeLanguage, canonicalLanguage, isPlamoOnlyTarget } from '@/shared/languages';
+import { buildSegment } from './segment';
 
 export function canonicalPageLanguage(tag: string | null | undefined): string | null {
   if (!tag) return null;
@@ -59,21 +60,33 @@ export function inferLanguage(text: string): string | null {
   return score >= 2 ? best : null;
 }
 
-export function languageOf(block: Element, fallback: string | null): string | null {
+/**
+ * The text a block translates as its own segment, without the placeholder markup that keeps
+ * inline children in place. Nested block elements belong to segments of their own, so they
+ * must not decide the language of the parent: a Steam comment on a Japanese page quotes a
+ * Japanese author label around an English post, and the parent's own words are still English.
+ */
+function ownTextForLanguage(block: Element, text?: string): string {
+  const source = text ?? buildSegment(block)?.source ?? '';
+  return source.replace(/<\/?i\d+>/gu, ' ');
+}
+
+export function languageOf(block: Element, fallback: string | null, text?: string): string | null {
   const root = block.ownerDocument.documentElement;
   if (block.hasAttribute('lang') && block !== root) {
     const own = canonicalPageLanguage(block.getAttribute('lang'));
     if (own) return own;
   }
 
-  const inferred = inferLanguage(block.textContent ?? '');
+  const ownText = ownTextForLanguage(block, text);
+  const inferred = inferLanguage(ownText);
   if (inferred) return inferred;
 
   const source = canonicalPageLanguage(root?.getAttribute('data-sakutto-source-lang'));
   if (source) {
     // See the note on `contradictsScript` below: a page can declare a language its prose is
     // not in, and a stale declaration must not override the words on the page.
-    return contradictsScript(source, block.textContent ?? '') ? null : source;
+    return contradictsScript(source, ownText) ? null : source;
   }
 
   // `<html lang>` is set to the target while a page is translated, so reading it as an
@@ -91,7 +104,7 @@ export function languageOf(block: Element, fallback: string | null): string | nu
   // `<html lang="ja">` with an English body, and reporting `ja` as the source told the model
   // to translate English out of Japanese. When a block is plainly not written in the script
   // of the declared language, claim no source language and let the model see the text alone.
-  if (declared !== null && contradictsScript(declared, block.textContent ?? '')) return null;
+  if (declared !== null && contradictsScript(declared, ownText)) return null;
   return declared;
 }
 
@@ -132,10 +145,11 @@ export function isAlreadyTargetLanguage(
   block: Element,
   target: string,
   fallback: string | null,
+  text?: string,
 ): boolean {
   // Easy Japanese is a different output style, not the Japanese already on the page.
   if (isPlamoOnlyTarget(target)) return false;
-  const language = languageOf(block, fallback);
+  const language = languageOf(block, fallback, text);
   const canonicalTarget = canonicalPageLanguage(target);
   return language !== null && canonicalTarget !== null && language === canonicalTarget;
 }
