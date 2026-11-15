@@ -2,6 +2,8 @@
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/mhlbjjijfkoghmcjndgdimhdlfkhadfl?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
 [![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/mhlbjjijfkoghmcjndgdimhdlfkhadfl?label=users)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![Firefox Add-ons](https://img.shields.io/amo/v/sakutto-local-ai-translation?logo=firefoxbrowser&logoColor=white&label=Firefox%20Add-ons)](https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/)
+[![Firefox Add-ons users](https://img.shields.io/amo/users/sakutto-local-ai-translation?label=users)](https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/)
 [![GitHub stars](https://img.shields.io/github/stars/jammaru/sakutto?style=flat&logo=github)](https://github.com/jammaru/sakutto/stargazers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
@@ -13,9 +15,10 @@ Sakutto は、ウェブページを端末の中で翻訳する、Chrome と Fire
 
 ## インストール
 
-Chrome ウェブストアからインストールできます。
+Chrome ウェブストアまたは Firefox Add-ons からインストールできます。
 
-https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
+- Chrome ウェブストア: https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
+- Firefox Add-ons（Firefox 153 以降）: https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/
 
 自分でビルドして読み込む場合は、次の手順です。
 
@@ -23,7 +26,7 @@ https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
 2. このリポジトリを取得し、`pnpm install` を実行します。
 3. [ビルド](#ビルド) の手順で、翻訳ランタイムと拡張機能をビルドします。
 4. Chrome: `chrome://extensions` を開き、**デベロッパー モード** をオンにし、**パッケージ化されていない拡張機能を読み込む** から `.output/chrome-mv3` を選びます。
-5. Firefox 153 以降（まずは Windows）: `about:debugging` の「この Firefox」から **一時的なアドオンを読み込む** で `.output/firefox-mv3/manifest.json` を選びます。[docs/FIREFOX.md](docs/FIREFOX.md) を参照してください。
+5. Firefox 153 以降（まずは Windows）は、通常 [Firefox Add-ons](https://addons.mozilla.org/ja/firefox/addon/sakutto-local-ai-translation/) からインストールします。ローカルでビルドする開発者は、`about:debugging` の「この Firefox」から **一時的なアドオンを読み込む** で `.output/firefox-mv3/manifest.json` を選びます。[docs/FIREFOX.md](docs/FIREFOX.md) を参照してください。
 
 ## ショートカット
 

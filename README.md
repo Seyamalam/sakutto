@@ -2,6 +2,8 @@
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/mhlbjjijfkoghmcjndgdimhdlfkhadfl?logo=googlechrome&logoColor=white&label=Chrome%20Web%20Store)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
 [![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/mhlbjjijfkoghmcjndgdimhdlfkhadfl?label=users)](https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl)
+[![Firefox Add-ons](https://img.shields.io/amo/v/sakutto-local-ai-translation?logo=firefoxbrowser&logoColor=white&label=Firefox%20Add-ons)](https://addons.mozilla.org/firefox/addon/sakutto-local-ai-translation/)
+[![Firefox Add-ons users](https://img.shields.io/amo/users/sakutto-local-ai-translation?label=users)](https://addons.mozilla.org/firefox/addon/sakutto-local-ai-translation/)
 [![GitHub stars](https://img.shields.io/github/stars/jammaru/sakutto?style=flat&logo=github)](https://github.com/jammaru/sakutto/stargazers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pdSRBaSr38)
@@ -13,9 +15,10 @@ The extension is free and open source (MIT). It has no ads and no paid features.
 
 ## Install
 
-Install Sakutto from the Chrome Web Store:
+Install Sakutto from the Chrome Web Store or Firefox Add-ons:
 
-https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
+- Chrome Web Store: https://chrome.google.com/webstore/detail/mhlbjjijfkoghmcjndgdimhdlfkhadfl
+- Firefox Add-ons (Firefox 153 or later): https://addons.mozilla.org/firefox/addon/sakutto-local-ai-translation/
 
 To build and load it yourself instead:
 
@@ -23,7 +26,7 @@ To build and load it yourself instead:
 2. Clone this repository and run `pnpm install`.
 3. Build the translation runtime and the extension (see [Build](#build)).
 4. Chrome: open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and select `.output/chrome-mv3`.
-5. Firefox 153 or later (Windows first): open `about:debugging`, choose **This Firefox**, **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. See [docs/FIREFOX.md](docs/FIREFOX.md).
+5. Firefox 153 or later (Windows first) is normally installed from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/sakutto-local-ai-translation/). Developers building locally can open `about:debugging`, choose **This Firefox**, **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. See [docs/FIREFOX.md](docs/FIREFOX.md).
 
 ## Shortcuts
 
